@@ -13,6 +13,26 @@
 # expected fields in the configuration file for this app
 configuration:
 
+    publish_type:
+        type: publish_type
+        allows_empty: False
+        description:
+
+    action:
+        type: str
+        allows_empty: False
+        description:
+
+    context:
+        type: dict
+        items:
+            task:
+                type: str
+            step:
+                type: str
+        allows_empty: False
+        description:
+
 # this app works in all engines - it does not contain
 # any host application specific commands
 supported_engines:

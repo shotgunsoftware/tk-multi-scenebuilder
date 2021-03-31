@@ -8,21 +8,4 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
-import sgtk
-
-
-class SceneBuilderApp(sgtk.platform.Application):
-    """
-    """
-
-    def init_app(self):
-        """
-        Called as the application is being initialized
-        """
-
-        tk_multi_scenebuilder = self.import_module("tk_multi_scenebuilder")
-
-        cb = lambda: tk_multi_scenebuilder.show_dialog(self)
-        self.engine.register_command(
-            "Scene Builder...", cb, {"short_name": "scene_builder"}
-        )
+from . import tk_multi_scenebuilder
