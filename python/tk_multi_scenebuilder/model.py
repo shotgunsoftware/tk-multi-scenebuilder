@@ -21,6 +21,8 @@ class FileModel(ShotgunModel):
     """
     """
 
+    STATE_ROLE = QtCore.Qt.UserRole + 32
+
     def __init__(self, parent, bg_task_manager, loader_app):
         """
         Class constructor
@@ -68,14 +70,13 @@ class FileModel(ShotgunModel):
             order=[{"field_name": "version_number", "direction": "desc"}],
             fields=fields,
             columns=["entity", self._publish_type_field, "version_number", "path"],
-            editable_columns=["version_number"],
         )
 
         items = []
         for r in range(self.rowCount()):
-            # first_item = self.item(r, 0)
-            # first_item.setCheckable(True)
             state_item = QtGui.QStandardItem()
+            state_item.setCheckable(True)
+            state_item.setCheckState(QtCore.Qt.CheckState.Checked)
             items.append(state_item)
         self.insertColumn(0, items)
 
@@ -95,8 +96,9 @@ class FileModel(ShotgunModel):
             input.
         """
 
-        # need to re-order the published files by task then published file type and name in order to have the right
-        # history for the files
+        # need to re-order the published files by task then published file type and name in order to only keep the
+        # latest version of each file
+        data_to_keep = []
         publishes = {}
         for publish in data:
             publishes_by_task = publishes.setdefault(publish["task"]["id"], {})
@@ -104,18 +106,10 @@ class FileModel(ShotgunModel):
                 publish[self._publish_type_field]["id"], {}
             )
             publishes_by_name = publishes_by_type.setdefault(publish["name"], [])
-            publishes_by_name.append(publish)
+            if publishes_by_name:
+                continue
+            else:
+                data_to_keep.append(publish)
+                publishes_by_name.append(publish)
 
-        # add a flag to each publish to indicate whether the file is the latest version or not
-        for publish in data:
-            publish_history = publishes[publish["task"]["id"]][
-                publish[self._publish_type_field]["id"]
-            ][publish["name"]]
-            version_list = [p["version_number"] for p in publish_history]
-            # max_version = max(p["version_number"] for p in publish_history)
-            # if publish["version_number"] == max_version:
-            #     publish["is_latest"] = True
-            # else:
-            #     publish["is_latest"] = False
-
-        return data
+        return data_to_keep

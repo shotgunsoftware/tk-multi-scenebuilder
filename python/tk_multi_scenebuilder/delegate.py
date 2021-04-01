@@ -11,6 +11,7 @@
 import sgtk
 from sgtk.platform.qt import QtGui, QtCore
 
+
 views = sgtk.platform.import_framework("tk-framework-qtwidgets", "views")
 EditSelectedWidgetDelegate = views.EditSelectedWidgetDelegate
 
@@ -49,9 +50,7 @@ class FileDelegate(EditSelectedWidgetDelegate):
         :rtype:             :class:`~PySide.QtGui.QWidget`
         """
         if model_index.column() == 0:
-            return QtGui.QCheckBox(parent)
-        elif model_index.column() == 4:
-            return QtGui.QComboBox(parent)
+            return None
         else:
             return QtGui.QLabel(parent)
 
@@ -97,39 +96,40 @@ class FileDelegate(EditSelectedWidgetDelegate):
         :param style_options: QT style options
         """
 
-        widget.setStyleSheet("margin:5px;")
-
         # checkbox column
         if model_index.column() == 0:
-            widget.setStyleSheet("margin-left:10px;")
-            widget.setChecked(True)
+            pass
 
         # thumbnail column
-        elif model_index.column() == 1:
-            widget.setMinimumSize(QtCore.QSize(96, 75))
-            widget.setMaximumSize(QtCore.QSize(96, 75))
-            widget.setScaledContents(True)
-            icon = shotgun_model.get_sanitized_data(
-                model_index, QtCore.Qt.DecorationRole
-            )
-            if icon:
-                pixmap = icon.pixmap(512)
-                widget.setPixmap(pixmap)
-
-        # text and combobox columns
         else:
-            data = model_index.data()
-            sg_data = model_index.data(
-                shotgun_model.ShotgunModel.SG_ASSOCIATED_FIELD_ROLE
-            )
 
-            # combobox column
-            if model_index.column() == 4:
-                widget.addItem(data)
-                widget.setFixedHeight(50)
-                widget.setStyleSheet("margin-top:25px;")
+            widget.setStyleSheet("margin: 5px;")
+
+            if model_index.column() == 1:
+                widget.setMinimumSize(QtCore.QSize(96, 75))
+                widget.setMaximumSize(QtCore.QSize(96, 75))
+                widget.setScaledContents(True)
+                icon = shotgun_model.get_sanitized_data(
+                    model_index, QtCore.Qt.DecorationRole
+                )
+                if icon:
+                    pixmap = icon.pixmap(512)
+                    widget.setPixmap(pixmap)
+
+            # text columns
             else:
-                if "local_path" in sg_data.keys():
+                data = model_index.data()
+                sg_data = model_index.data(
+                    shotgun_model.ShotgunModel.SG_ASSOCIATED_FIELD_ROLE
+                )
+
+                # format some data before displaying them
+                if model_index.column() == 2:
+                    data = "<b style='color:#18A7E3;'>{}</b>".format(data)
+                elif model_index.column() == 4:
+                    data = "v%03d" % int(data)
+
+                if isinstance(sg_data, dict) and "local_path" in sg_data.keys():
                     widget.setText(sg_data["local_path"])
                 else:
                     widget.setText(data)

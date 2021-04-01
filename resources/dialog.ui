@@ -20,7 +20,7 @@
       <set>QAbstractItemView::CurrentChanged|QAbstractItemView::SelectedClicked</set>
      </property>
      <property name="selectionMode">
-      <enum>QAbstractItemView::SingleSelection</enum>
+      <enum>QAbstractItemView::NoSelection</enum>
      </property>
      <property name="selectionBehavior">
       <enum>QAbstractItemView::SelectRows</enum>

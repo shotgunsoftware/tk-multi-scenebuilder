@@ -63,12 +63,10 @@ class AppDialog(QtGui.QWidget):
         self._delegate = FileDelegate(self._ui.view)
         self._ui.view.setItemDelegate(self._delegate)
 
-        # self._ui.view.setShowGrid(False)
         self._ui.view.resizeColumnsToContents()
         self._ui.view.horizontalHeader().setStretchLastSection(True)
         self._ui.view.setColumnWidth(1, 96)
-        # self._ui.view.verticalHeader().setSectionResizeMode(QtGui.QHeaderView.Fixed)
-        # self._ui.view.verticalHeader().setDefaultSectionSize(75)
+        self._ui.view.setColumnWidth(2, 150)
 
         self._ui.build_button.clicked.connect(self.test_fn)
 

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'Y:\SGTK\devs\tk-multi-scenebuilder\resources\dialog.ui'
 #
-# Created: Tue Mar 30 16:17:33 2021
+# Created: Thu Apr  1 14:49:41 2021
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,7 +17,7 @@ class Ui_Dialog(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.view = QtGui.QTableView(Dialog)
         self.view.setEditTriggers(QtGui.QAbstractItemView.CurrentChanged|QtGui.QAbstractItemView.SelectedClicked)
-        self.view.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+        self.view.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
         self.view.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.view.setShowGrid(False)
         self.view.setObjectName("view")
