@@ -25,6 +25,10 @@ shotgun_globals = sgtk.platform.import_framework(
     "tk-framework-shotgunutils", "shotgun_globals"
 )
 
+shotgun_model = sgtk.platform.import_framework(
+    "tk-framework-shotgunutils", "shotgun_model"
+)
+
 
 class AppDialog(QtGui.QWidget):
     def __init__(self, parent=None):
@@ -67,8 +71,9 @@ class AppDialog(QtGui.QWidget):
         self._ui.view.horizontalHeader().setStretchLastSection(True)
         self._ui.view.setColumnWidth(1, 96)
         self._ui.view.setColumnWidth(2, 150)
+        self._ui.view.setColumnHidden(6, True)
 
-        self._ui.build_button.clicked.connect(self.test_fn)
+        self._ui.build_button.clicked.connect(self.build_scene)
 
     def closeEvent(self, event):
         """
@@ -86,13 +91,26 @@ class AppDialog(QtGui.QWidget):
 
         return QtGui.QWidget.closeEvent(self, event)
 
-    def test_fn(self):
+    def build_scene(self):
         """
         :return:
         """
-        self._bundle.logger.info(
-            "[DEBUG BARBARA] columnCount: {}".format(self._model.columnCount())
-        )
-        self._bundle.logger.info(
-            "[DEBUG BARBARA] rowCount: {}".format(self._model.rowCount())
-        )
+
+        action_name = self._bundle.get_setting("action")
+
+        for row in range(self._model.rowCount()):
+
+            state_item = self._model.item(row, 0)
+            if state_item.checkState() == QtCore.Qt.CheckState.Checked:
+
+                data_item = self._model.item(row, self._model.columnCount() - 1)
+                sg_data = data_item.data(
+                    shotgun_model.ShotgunModel.SG_ASSOCIATED_FIELD_ROLE
+                )
+
+                loader_actions = self._loader_manager.get_actions_for_publish(
+                    sg_data, self._loader_manager.UI_AREA_MAIN
+                )
+                for action in loader_actions:
+                    if action["name"] == action_name:
+                        self._loader_manager.execute_action(sg_data, action)

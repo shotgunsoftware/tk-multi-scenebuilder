@@ -21,7 +21,7 @@ class FileModel(ShotgunModel):
     """
     """
 
-    STATE_ROLE = QtCore.Qt.UserRole + 32
+    PUBLISH_DATA_ROLE = QtCore.Qt.UserRole + 32
 
     def __init__(self, parent, bg_task_manager, loader_app):
         """
@@ -69,7 +69,13 @@ class FileModel(ShotgunModel):
             hierarchy=["id"],
             order=[{"field_name": "version_number", "direction": "desc"}],
             fields=fields,
-            columns=["entity", self._publish_type_field, "version_number", "path"],
+            columns=[
+                "entity",
+                self._publish_type_field,
+                "version_number",
+                "path",
+                "sg_publish_data",
+            ],
         )
 
         items = []
@@ -109,6 +115,7 @@ class FileModel(ShotgunModel):
             if publishes_by_name:
                 continue
             else:
+                publish["sg_publish_data"] = publish.copy()
                 data_to_keep.append(publish)
                 publishes_by_name.append(publish)
 
