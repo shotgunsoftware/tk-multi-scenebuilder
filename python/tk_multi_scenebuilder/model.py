@@ -45,22 +45,33 @@ class FileModel(ShotgunModel):
         # make sure we have all the Shotgun fields required by the Loader app
         fields = loader_app.import_module(
             "tk_multi_loader.constants"
-        ).PUBLISHED_FILES_FIELDS + [self._publish_type_field]
+        ).PUBLISHED_FILES_FIELDS + [
+            self._publish_type_field,
+            "task.Task.step.Step.code",
+        ]
         filters = [["entity.Asset.parents", "in", app.context.entity]]
 
-        # get the right context according to the app setting
-        context = app.get_setting("context")
-        filters.append(["task.Task.content", "is", context["task"]])
-        filters.append(["task.Task.step.Step.code", "is", context["step"]])
+        # build a set of complex filters according to the app settings
+        complex_filters = {"filter_operator": "any", "filters": []}
 
-        publish_type = app.get_setting("publish_type")
-        filters.append(
-            [
-                "{}.PublishedFileType.code".format(self._publish_type_field),
-                "is",
-                publish_type,
-            ]
-        )
+        for action in app.get_setting("actions"):
+
+            sub_filters = {
+                "filter_operator": "all",
+                "filters": [
+                    ["task.Task.content", "is", action["context"]["task_name"]],
+                    ["task.Task.step.Step.code", "is", action["context"]["step_name"]],
+                    [
+                        "published_file_type.PublishedFileType.code",
+                        "in",
+                        list(action["action_mappings"].keys()),
+                    ],
+                ],
+            }
+
+            complex_filters["filters"].append(sub_filters)
+
+        filters.append(complex_filters)
 
         ShotgunModel._load_data(
             self,

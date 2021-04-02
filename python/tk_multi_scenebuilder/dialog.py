@@ -40,6 +40,14 @@ class AppDialog(QtGui.QWidget):
 
         self._bundle = sgtk.platform.current_bundle()
 
+        publish_entity_type = sgtk.util.get_published_file_entity_type(
+            self._bundle.sgtk
+        )
+        if publish_entity_type == "PublishedFile":
+            self._publish_type_field = "published_file_type"
+        else:
+            self._publish_type_field = "tank_type"
+
         # now load in the UI that was created in the UI designer
         self._ui = Ui_Dialog()
         self._ui.setupUi(self)
@@ -96,7 +104,8 @@ class AppDialog(QtGui.QWidget):
         :return:
         """
 
-        action_name = self._bundle.get_setting("action")
+        # sort the action mappings to be able to easily find the action to perform
+        action_mappings = self.__sort_action_mappings()
 
         for row in range(self._model.rowCount()):
 
@@ -108,9 +117,37 @@ class AppDialog(QtGui.QWidget):
                     shotgun_model.ShotgunModel.SG_ASSOCIATED_FIELD_ROLE
                 )
 
+                step_name = sg_data["task.Task.step.Step.code"]
+                task_name = sg_data["task.Task.content"]
+                publish_type = sg_data[self._publish_type_field]["name"]
+
+                action_name = action_mappings[step_name][task_name][publish_type]
+
                 loader_actions = self._loader_manager.get_actions_for_publish(
                     sg_data, self._loader_manager.UI_AREA_MAIN
                 )
                 for action in loader_actions:
                     if action["name"] == action_name:
                         self._loader_manager.execute_action(sg_data, action)
+
+    def __sort_action_mappings(self):
+        """
+        :return:
+        """
+        action_mappings = {}
+
+        actions = self._bundle.get_setting("actions")
+        for action in actions:
+
+            actions_by_step = action_mappings.setdefault(
+                action["context"]["step_name"], {}
+            )
+            actions_by_task = actions_by_step.setdefault(
+                action["context"]["task_name"], {}
+            )
+
+            for publish_type, action_name in action["action_mappings"].items():
+                if publish_type not in actions_by_task.keys():
+                    actions_by_task[publish_type] = action_name
+
+        return action_mappings
