@@ -25,14 +25,12 @@ shotgun_globals = sgtk.platform.import_framework(
     "tk-framework-shotgunutils", "shotgun_globals"
 )
 
-shotgun_model = sgtk.platform.import_framework(
-    "tk-framework-shotgunutils", "shotgun_model"
-)
-
 
 class AppDialog(QtGui.QWidget):
     def __init__(self, parent=None):
         """
+        Class constructor.
+
         :param parent: The parent QWidget for this control
         """
 
@@ -40,6 +38,8 @@ class AppDialog(QtGui.QWidget):
 
         self._bundle = sgtk.platform.current_bundle()
 
+        # for backwards compatibility, we need to query the entity type that this toolkit uses for its Publishes
+        # as well as the field name used for the published file type
         publish_entity_type = sgtk.util.get_published_file_entity_type(
             self._bundle.sgtk
         )
@@ -56,7 +56,12 @@ class AppDialog(QtGui.QWidget):
         # asynchronous work/tasks
         self._bg_task_manager = BackgroundTaskManager(self, max_threads=8)
         self._bg_task_manager.start_processing()
+        shotgun_globals.register_bg_task_manager(self._bg_task_manager)
 
+        # create a loader manager using the loader application
+        # this manager will be used to perform all the "load" actions
+        # this is to ensure that we'll go through the same process than if we'd
+        # use the loader app
         current_engine = sgtk.platform.current_engine()
         loader_app = current_engine.apps.get("tk-multi-loader2")
         if not loader_app:
@@ -65,8 +70,7 @@ class AppDialog(QtGui.QWidget):
             )
         self._loader_manager = loader_app.create_loader_manager()
 
-        shotgun_globals.register_bg_task_manager(self._bg_task_manager)
-
+        # finally, create the model used to retrieve the files, and connect it to the view using a custom delegate
         self._model = FileModel(
             self, bg_task_manager=self._bg_task_manager, loader_app=loader_app
         )
@@ -75,23 +79,22 @@ class AppDialog(QtGui.QWidget):
         self._delegate = FileDelegate(self._ui.view)
         self._ui.view.setItemDelegate(self._delegate)
 
-        self._ui.view.resizeColumnsToContents()
-        self._ui.view.horizontalHeader().setStretchLastSection(True)
-        self._ui.view.setColumnWidth(1, 96)
-        self._ui.view.setColumnWidth(2, 150)
-        self._ui.view.setColumnHidden(6, True)
-
+        # widget connections
         self._ui.build_button.clicked.connect(self.build_scene)
 
     def closeEvent(self, event):
         """
-        Overriden method triggered when the widget is closed.  Cleans up as much as possible
+        Overriden method triggered when the widget is closed. Cleans up as much as possible
         to help the GC.
 
         :param event: Close event
         """
 
-        # and shut down the task manager
+        # clear up the data model
+        if self._model:
+            self._model.destroy()
+
+        # shut down the task manager
         if self._bg_task_manager:
             shotgun_globals.unregister_bg_task_manager(self._bg_task_manager)
             self._bg_task_manager.shut_down()
@@ -101,53 +104,23 @@ class AppDialog(QtGui.QWidget):
 
     def build_scene(self):
         """
-        :return:
+        Load all the selected files into the current scene.
+        The "load" actions are determined by the publish file type and what has been defined inside the configuration
         """
-
-        # sort the action mappings to be able to easily find the action to perform
-        action_mappings = self.__sort_action_mappings()
 
         for row in range(self._model.rowCount()):
 
+            # only load the selected items
             state_item = self._model.item(row, 0)
             if state_item.checkState() == QtCore.Qt.CheckState.Checked:
 
-                data_item = self._model.item(row, self._model.columnCount() - 1)
-                sg_data = data_item.data(
-                    shotgun_model.ShotgunModel.SG_ASSOCIATED_FIELD_ROLE
-                )
+                sg_data = state_item.data(FileModel.SG_DATA_ROLE)
+                action_name = state_item.data(FileModel.ACTION_ROLE)
 
-                step_name = sg_data["task.Task.step.Step.code"]
-                task_name = sg_data["task.Task.content"]
-                publish_type = sg_data[self._publish_type_field]["name"]
-
-                action_name = action_mappings[step_name][task_name][publish_type]
-
+                # use the loader manager to perform the load actions
                 loader_actions = self._loader_manager.get_actions_for_publish(
                     sg_data, self._loader_manager.UI_AREA_MAIN
                 )
                 for action in loader_actions:
                     if action["name"] == action_name:
                         self._loader_manager.execute_action(sg_data, action)
-
-    def __sort_action_mappings(self):
-        """
-        :return:
-        """
-        action_mappings = {}
-
-        actions = self._bundle.get_setting("actions")
-        for action in actions:
-
-            actions_by_step = action_mappings.setdefault(
-                action["context"]["step_name"], {}
-            )
-            actions_by_task = actions_by_step.setdefault(
-                action["context"]["task_name"], {}
-            )
-
-            for publish_type, action_name in action["action_mappings"].items():
-                if publish_type not in actions_by_task.keys():
-                    actions_by_task[publish_type] = action_name
-
-        return action_mappings

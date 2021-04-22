@@ -21,12 +21,9 @@ configuration:
             type: dict
             items:
                 context:
-                    type: dict
-                    items:
-                        step_name:
-                            type: str
-                        task_name:
-                            type: str
+                    type: list
+                    values:
+                        type: shotgun_filter
                 action_mappings:
                     type: dict
 

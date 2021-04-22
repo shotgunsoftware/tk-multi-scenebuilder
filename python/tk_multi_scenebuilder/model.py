@@ -11,123 +11,185 @@
 import sgtk
 from sgtk.platform.qt import QtCore, QtGui
 
-shotgun_model = sgtk.platform.import_framework(
-    "tk-framework-shotgunutils", "shotgun_model"
+from .utils import resolve_filters
+
+shotgun_data = sgtk.platform.import_framework(
+    "tk-framework-shotgunutils", "shotgun_data"
 )
-ShotgunModel = shotgun_model.ShotgunModel
+ShotgunDataRetriever = shotgun_data.ShotgunDataRetriever
 
 
-class FileModel(ShotgunModel):
+class FileModel(QtGui.QStandardItemModel):
     """
+    The FileModel maintains a model of all the Published Files found when querying SG according to the settings defined
+    in the config. Each Published File is represented by a row in the model where the columns are SG fields.
     """
 
-    PUBLISH_DATA_ROLE = QtCore.Qt.UserRole + 32
+    SG_DATA_ROLE = QtCore.Qt.UserRole + 32
+    ACTION_ROLE = QtCore.Qt.UserRole + 33
 
     def __init__(self, parent, bg_task_manager, loader_app):
         """
-        Class constructor
+        Class constructor.
 
         :param parent:          The parent QObject for this instance
         :param bg_task_manager: A BackgroundTaskManager instance that will be used for all background/threaded
                                 work that needs undertaking
+        :param loader_app:      Instance of the Loader application
         """
 
-        ShotgunModel.__init__(self, parent, bg_task_manager=bg_task_manager)
+        QtGui.QStandardItemModel.__init__(self, parent)
 
-        app = sgtk.platform.current_bundle()
-        publish_entity_type = sgtk.util.get_published_file_entity_type(app.sgtk)
+        self._app = sgtk.platform.current_bundle()
 
+        self._pending_requests = {}
+
+        # sg data retriever is used to download thumbnails and perform SG queries in the background
+        self._sg_data_retriever = ShotgunDataRetriever(bg_task_manager=bg_task_manager)
+        self._sg_data_retriever.work_completed.connect(
+            self._on_data_retriever_work_completed
+        )
+        self._sg_data_retriever.work_failure.connect(
+            self._on_data_retriever_work_failed
+        )
+        self._sg_data_retriever.start()
+
+        # for backwards compatibility, we need to query the entity type that this toolkit uses for its Publishes
+        # as well as the field name used for the published file type
+        publish_entity_type = sgtk.util.get_published_file_entity_type(self._app.sgtk)
         if publish_entity_type == "PublishedFile":
             self._publish_type_field = "published_file_type"
         else:
             self._publish_type_field = "tank_type"
 
-        # make sure we have all the Shotgun fields required by the Loader app
-        fields = loader_app.import_module(
-            "tk_multi_loader.constants"
-        ).PUBLISHED_FILES_FIELDS + [
-            self._publish_type_field,
-            "task.Task.step.Step.code",
-        ]
-        filters = [["entity.Asset.parents", "in", app.context.entity]]
+        # define the columns we want to load in the model
+        self.__COLUMNS = ["entity", self._publish_type_field, "version_number", "path"]
 
-        # build a set of complex filters according to the app settings
-        complex_filters = {"filter_operator": "any", "filters": []}
+        # finally load the data
+        for action in self._app.get_setting("actions"):
 
-        for action in app.get_setting("actions"):
+            publish_type_filters = [
+                "{}.PublishedFileType.code".format(self._publish_type_field),
+                "in",
+                list(action["action_mappings"].keys()),
+            ]
 
-            sub_filters = {
-                "filter_operator": "all",
-                "filters": [
-                    ["task.Task.content", "is", action["context"]["task_name"]],
-                    ["task.Task.step.Step.code", "is", action["context"]["step_name"]],
-                    [
-                        "published_file_type.PublishedFileType.code",
-                        "in",
-                        list(action["action_mappings"].keys()),
-                    ],
-                ],
-            }
+            # ensure we have all the SG fields needed by the loader application to perform its actions
+            fields = loader_app.import_module(
+                "tk_multi_loader.constants"
+            ).PUBLISHED_FILES_FIELDS + [self._publish_type_field]
+            filters = resolve_filters(action["context"]) + [publish_type_filters]
+            order = [{"field_name": "version_number", "direction": "desc"}]
 
-            complex_filters["filters"].append(sub_filters)
-
-        filters.append(complex_filters)
-
-        ShotgunModel._load_data(
-            self,
-            entity_type=publish_entity_type,
-            filters=filters,
-            hierarchy=["id"],
-            order=[{"field_name": "version_number", "direction": "desc"}],
-            fields=fields,
-            columns=[
-                "entity",
-                self._publish_type_field,
-                "version_number",
-                "path",
-                "sg_publish_data",
-            ],
-        )
-
-        items = []
-        for r in range(self.rowCount()):
-            state_item = QtGui.QStandardItem()
-            state_item.setCheckable(True)
-            state_item.setCheckState(QtCore.Qt.CheckState.Checked)
-            items.append(state_item)
-        self.insertColumn(0, items)
-
-        self._refresh_data()
-
-    def _before_data_processing(self, data):
-        """
-        Called just after data has been retrieved from Shotgun but before any
-        processing takes place.
-
-        .. note:: You can subclass this if you want to perform summaries,
-            calculations and other manipulations of the data before it is
-            passed on to the model class.
-
-        :param data: A shotgun dictionary or a list of shotgun dictionary, as returned by a CRUD SG API call.
-        :returns: Should return a shotgun dictionary or a list of shotgun dictionary, of the same form as the
-            input.
-        """
-
-        # need to re-order the published files by task then published file type and name in order to only keep the
-        # latest version of each file
-        data_to_keep = []
-        publishes = {}
-        for publish in data:
-            publishes_by_task = publishes.setdefault(publish["task"]["id"], {})
-            publishes_by_type = publishes_by_task.setdefault(
-                publish[self._publish_type_field]["id"], {}
+            # execute SG query in the background
+            find_uid = self._sg_data_retriever.execute_find(
+                publish_entity_type, filters, fields, order
             )
-            publishes_by_name = publishes_by_type.setdefault(publish["name"], [])
-            if publishes_by_name:
-                continue
-            else:
-                publish["sg_publish_data"] = publish.copy()
-                data_to_keep.append(publish)
-                publishes_by_name.append(publish)
+            self._pending_requests[find_uid] = action["action_mappings"]
 
-        return data_to_keep
+    def destroy(self):
+        """
+        Called to clean-up and shutdown any internal objects when the model has been finished
+        with. Failure to call this may result in instability or unexpected behaviour!
+        """
+
+        # clear the model
+        self.clear()
+
+        # stop the data retriever
+        if self._sg_data_retriever:
+            self._sg_data_retriever.stop()
+            self._sg_data_retriever.deleteLater()
+            self._sg_data_retriever = None
+
+    def _on_data_retriever_work_completed(self, uid, request_type, data):
+        """
+        Slot triggered when the data-retriever has finished doing some work. The data retriever is currently
+        just used to download thumbnails for published files so this will be triggered when a new thumbnail
+        has been downloaded and loaded from disk.
+
+        :param uid:             The unique id representing a task being executed by the data retriever
+        :param request_type:    A string representing the type of request that has been completed
+        :param data:            The result from completing the work
+        """
+        if uid not in self._pending_requests:
+            return
+
+        if request_type == "find":
+            publishes = {}
+            action_mappings = self._pending_requests.pop(uid)
+            for publish in data["sg"]:
+
+                row_items = []
+
+                # in that case, we only want to keep the latest version of the published file and not all of its history
+                publishes_by_task = publishes.setdefault(publish["task"]["id"], {})
+                publishes_by_type = publishes_by_task.setdefault(
+                    publish[self._publish_type_field]["id"], {}
+                )
+                publishes_by_name = publishes_by_type.get(publish["name"], None)
+
+                if publishes_by_name:
+                    # a more recent version has already been found, so skip this file
+                    continue
+
+                else:
+
+                    publishes_by_type[publish["name"]] = publish
+
+                    # get the action to perform according to the published file type
+                    action_name = action_mappings.get(
+                        publish[self._publish_type_field]["name"]
+                    )
+
+                    # create an item to manage the state of the file (checked or not) in order for the user to choose if
+                    # he wants this file to be loaded when building the scene
+                    # we're also using this item to store important data
+                    state_item = QtGui.QStandardItem()
+                    state_item.setCheckable(True)
+                    state_item.setCheckState(QtCore.Qt.CheckState.Checked)
+                    state_item.setData(publish, self.SG_DATA_ROLE)
+                    state_item.setData(action_name, self.ACTION_ROLE)
+                    row_items.append(state_item)
+
+                    # create an item for the thumbnail and download it in a background process
+                    thumbnail_item = QtGui.QStandardItem()
+                    row_items.append(thumbnail_item)
+                    thumbnail_id = self._sg_data_retriever.request_thumbnail(
+                        publish["image"], publish["type"], publish["id"], "image"
+                    )
+                    self._pending_requests[thumbnail_id] = thumbnail_item
+
+                    # finally, create an item for each SG field
+                    for field_name in self.__COLUMNS:
+                        if field_name in publish.keys():
+                            item = QtGui.QStandardItem()
+                            item.setData(publish[field_name], self.SG_DATA_ROLE)
+                            row_items.append(item)
+
+                    self.insertRow(0, row_items)
+
+        elif request_type == "check_thumbnail":
+            thumbnail_item = self._pending_requests.pop(uid)
+            thumb_path = data.get("thumb_path")
+            if thumb_path:
+                thumbnail_item.setIcon(QtGui.QPixmap(thumb_path))
+                thumbnail_item.emitDataChanged()
+
+        else:
+            self._pending_requests.remove(uid)
+
+    def _on_data_retriever_work_failed(self, uid, error_msg):
+        """
+        Slot triggered when the data retriever fails to do some work!
+
+        :param uid:         The unique id representing the task that the data retriever failed on
+        :param error_msg:   The error message for the failed task
+        """
+        if uid in self._pending_requests:
+            self._pending_requests.remove(uid)
+        # if uid in self._pending_thumbnails:
+        #     del self._pending_thumbnails[uid]
+        self._app.logger.debug(
+            "File Model: Failed to find sg_data for id %s: %s" % (uid, error_msg)
+        )
