@@ -177,7 +177,7 @@ class FileModel(QtGui.QStandardItemModel):
                 thumbnail_item.emitDataChanged()
 
         else:
-            self._pending_requests.remove(uid)
+            del self._pending_requests[uid]
 
     def _on_data_retriever_work_failed(self, uid, error_msg):
         """
@@ -187,9 +187,7 @@ class FileModel(QtGui.QStandardItemModel):
         :param error_msg:   The error message for the failed task
         """
         if uid in self._pending_requests:
-            self._pending_requests.remove(uid)
-        # if uid in self._pending_thumbnails:
-        #     del self._pending_thumbnails[uid]
+            del self._pending_requests[uid]
         self._app.logger.debug(
             "File Model: Failed to find sg_data for id %s: %s" % (uid, error_msg)
         )
