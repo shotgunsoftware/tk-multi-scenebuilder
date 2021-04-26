@@ -130,3 +130,24 @@ class FileDelegate(EditSelectedWidgetDelegate):
                     data = "v%03d" % int(data)
 
                 widget.setText(data)
+
+    def sizeHint(self, style_options, model_index):
+        """
+        Specify the size of the item.
+
+        :param style_options: QT style options
+        :param model_index: Model item to operate on
+        """
+
+        if model_index.column() == 0:
+            return QtCore.QSize(17, 75)
+        elif model_index.column() == 1:
+            return QtCore.QSize(96, 75)
+        elif model_index.column() == 2:
+            return QtCore.QSize(150, 75)
+        elif model_index.column() == 3:
+            return QtCore.QSize(100, 75)
+        elif model_index.column() == 4:
+            return QtCore.QSize(75, 75)
+        else:
+            return super(FileDelegate, self).sizeHint(style_options, model_index)

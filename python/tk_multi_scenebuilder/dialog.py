@@ -79,6 +79,9 @@ class AppDialog(QtGui.QWidget):
         self._delegate = FileDelegate(self._ui.view)
         self._ui.view.setItemDelegate(self._delegate)
 
+        self._ui.view.horizontalHeader().setSectionResizeMode(QtGui.QHeaderView.ResizeToContents)
+        self._ui.view.horizontalHeader().setMinimumSectionSize(0)
+
         # widget connections
         self._ui.build_button.clicked.connect(self.build_scene)
 
