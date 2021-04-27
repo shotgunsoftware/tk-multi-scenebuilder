@@ -70,6 +70,11 @@ class AppDialog(QtGui.QWidget):
             )
         self._loader_manager = loader_app.create_loader_manager()
 
+        # get the presets list from the app settings
+        presets = self._bundle.get_setting("presets")
+        preset_titles = [p["title"] for p in presets]
+        self._ui.presets.addItems(preset_titles)
+
         # finally, create the model used to retrieve the files, and connect it to the view using a custom delegate
         self._model = FileModel(
             self, bg_task_manager=self._bg_task_manager, loader_app=loader_app
@@ -84,6 +89,10 @@ class AppDialog(QtGui.QWidget):
 
         # widget connections
         self._ui.build_button.clicked.connect(self.build_scene)
+        self._ui.presets.currentIndexChanged.connect(self._load_model_data)
+
+        # finally load the model data
+        self._load_model_data()
 
     def closeEvent(self, event):
         """
@@ -127,3 +136,10 @@ class AppDialog(QtGui.QWidget):
                 for action in loader_actions:
                     if action["name"] == action_name:
                         self._loader_manager.execute_action(sg_data, action)
+
+    def _load_model_data(self):
+        """
+        Ask the model to refresh its data according to the selected preset
+        """
+        preset_name = self._ui.presets.currentText()
+        self._model.load_data(preset_name)

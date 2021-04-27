@@ -41,6 +41,7 @@ class FileModel(QtGui.QStandardItemModel):
         QtGui.QStandardItemModel.__init__(self, parent)
 
         self._app = sgtk.platform.current_bundle()
+        self._loader_app = loader_app
 
         self._pending_requests = {}
 
@@ -56,36 +57,14 @@ class FileModel(QtGui.QStandardItemModel):
 
         # for backwards compatibility, we need to query the entity type that this toolkit uses for its Publishes
         # as well as the field name used for the published file type
-        publish_entity_type = sgtk.util.get_published_file_entity_type(self._app.sgtk)
-        if publish_entity_type == "PublishedFile":
+        self.publish_entity_type = sgtk.util.get_published_file_entity_type(self._app.sgtk)
+        if self.publish_entity_type == "PublishedFile":
             self._publish_type_field = "published_file_type"
         else:
             self._publish_type_field = "tank_type"
 
         # define the columns we want to load in the model
         self.__COLUMNS = ["entity", self._publish_type_field, "version_number", "path"]
-
-        # finally load the data
-        for action in self._app.get_setting("actions"):
-
-            publish_type_filters = [
-                "{}.PublishedFileType.code".format(self._publish_type_field),
-                "in",
-                list(action["action_mappings"].keys()),
-            ]
-
-            # ensure we have all the SG fields needed by the loader application to perform its actions
-            fields = loader_app.import_module(
-                "tk_multi_loader.constants"
-            ).PUBLISHED_FILES_FIELDS + [self._publish_type_field]
-            filters = resolve_filters(action["context"]) + [publish_type_filters]
-            order = [{"field_name": "version_number", "direction": "desc"}]
-
-            # execute SG query in the background
-            find_uid = self._sg_data_retriever.execute_find(
-                publish_entity_type, filters, fields, order
-            )
-            self._pending_requests[find_uid] = action["action_mappings"]
 
     def destroy(self):
         """
@@ -101,6 +80,40 @@ class FileModel(QtGui.QStandardItemModel):
             self._sg_data_retriever.stop()
             self._sg_data_retriever.deleteLater()
             self._sg_data_retriever = None
+
+    def load_data(self, preset_name):
+        """
+        Load the model data
+
+        :param preset_name:  Name of the preset we want to load data for
+        """
+
+        self.clear()
+
+        for preset in self._app.get_setting("presets"):
+            if preset["title"] != preset_name:
+                continue
+
+            for action in preset["actions"]:
+
+                publish_type_filters = [
+                    "{}.PublishedFileType.code".format(self._publish_type_field),
+                    "in",
+                    list(action["action_mappings"].keys()),
+                ]
+
+                # ensure we have all the SG fields needed by the loader application to perform its actions
+                fields = self._loader_app.import_module(
+                    "tk_multi_loader.constants"
+                ).PUBLISHED_FILES_FIELDS + [self._publish_type_field]
+                filters = resolve_filters(action["context"]) + [publish_type_filters]
+                order = [{"field_name": "version_number", "direction": "desc"}]
+
+                # execute SG query in the background
+                find_uid = self._sg_data_retriever.execute_find(
+                    self.publish_entity_type, filters, fields, order
+                )
+                self._pending_requests[find_uid] = action["action_mappings"]
 
     def _on_data_retriever_work_completed(self, uid, request_type, data):
         """

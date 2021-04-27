@@ -13,19 +13,29 @@
 # expected fields in the configuration file for this app
 configuration:
 
-    actions:
+    presets:
         type: list
         description:
         allows_empty: False
         values:
             type: dict
             items:
-                context:
+                title:
+                    type: str
+                    allows_empty: False
+                actions:
                     type: list
+                    description:
+                    allows_empty: False
                     values:
-                        type: shotgun_filter
-                action_mappings:
-                    type: dict
+                        type: dict
+                        items:
+                            context:
+                                type: list
+                                values:
+                                    type: shotgun_filter
+                            action_mappings:
+                                type: dict
 
 # this app works in all engines - it does not contain
 # any host application specific commands
