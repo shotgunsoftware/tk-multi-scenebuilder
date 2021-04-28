@@ -120,6 +120,8 @@ class AppDialog(QtGui.QWidget):
         The "load" actions are determined by the publish file type and what has been defined inside the configuration
         """
 
+        # collect all the items we're using to build the scene
+        items = []
         for row in range(self._model.rowCount()):
 
             # only load the selected items
@@ -129,13 +131,21 @@ class AppDialog(QtGui.QWidget):
                 sg_data = state_item.data(FileModel.SG_DATA_ROLE)
                 action_name = state_item.data(FileModel.ACTION_ROLE)
 
-                # use the loader manager to perform the load actions
-                loader_actions = self._loader_manager.get_actions_for_publish(
-                    sg_data, self._loader_manager.UI_AREA_MAIN
-                )
-                for action in loader_actions:
-                    if action["name"] == action_name:
-                        self._loader_manager.execute_action(sg_data, action)
+                items.append({"sg_data": sg_data, "action_name": action_name})
+
+        # then run the pre-build actions, load the files and finally execute the post-build actions
+        self._bundle.execute_hook_method("actions_hook", "pre_build_action", items=items)
+
+        for item in items:
+            # use the loader manager to perform the load actions
+            loader_actions = self._loader_manager.get_actions_for_publish(
+                item["sg_data"], self._loader_manager.UI_AREA_MAIN
+            )
+            for action in loader_actions:
+                if action["name"] == item["action_name"]:
+                    self._loader_manager.execute_action(item["sg_data"], action)
+
+        self._bundle.execute_hook_method("actions_hook", "post_build_action", items=items)
 
     def _load_model_data(self):
         """

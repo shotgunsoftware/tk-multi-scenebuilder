@@ -13,6 +13,11 @@
 # expected fields in the configuration file for this app
 configuration:
 
+    actions_hook:
+        type: hook
+        description: "Hook allowing the user to run some pre and/or post build actions."
+        default_value: "{self}/extra_build_actions.py"
+
     presets:
         type: list
         description: "A list of presets a user can choose when building his scene."
