@@ -47,4 +47,4 @@ Build-Ui("dialog")
 
 # build resources
 echo "building resources..."
-#Build-Rcc("resources")
+Build-Rcc("resources")

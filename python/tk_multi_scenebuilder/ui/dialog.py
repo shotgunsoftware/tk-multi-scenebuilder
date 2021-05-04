@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'Y:\SGTK\devs\tk-multi-scenebuilder\resources\dialog.ui'
 #
-# Created: Tue Apr 27 14:41:39 2021
+# Created: Tue May  4 12:57:16 2021
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -70,3 +70,4 @@ class Ui_Dialog(object):
         self.preset_label.setText(QtGui.QApplication.translate("Dialog", "Presets:", None, QtGui.QApplication.UnicodeUTF8))
         self.build_button.setText(QtGui.QApplication.translate("Dialog", "Build!", None, QtGui.QApplication.UnicodeUTF8))
 
+from . import resources_rc

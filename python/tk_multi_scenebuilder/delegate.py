@@ -22,6 +22,12 @@ class FileDelegate(EditSelectedWidgetDelegate):
     Custom delegate used to display the file items in the view.
     """
 
+    ITEM_STATUS_ICONS = {
+        FileModel.STATUS_UP_TO_DATE: QtGui.QIcon(":/tk-multi-scenebuilder/uptodate.png"),
+        FileModel.STATUS_OUT_OF_SYNC: QtGui.QIcon(":/tk-multi-scenebuilder/outofdate.png"),
+        FileModel.STATUS_NOT_LOADED: QtGui.QIcon(":/tk-multi-scenebuilder/missing.png")
+    }
+
     def __init__(self, view):
         """
         Class constructor.
@@ -101,8 +107,14 @@ class FileDelegate(EditSelectedWidgetDelegate):
 
             widget.setStyleSheet("margin: 5px;")
 
-            # thumbnail column
             if model_index.column() == 1:
+                icon = self.ITEM_STATUS_ICONS.get(model_index.data(FileModel.STATUS_ROLE), QtGui.QIcon())
+                pixmap = icon.pixmap(512)
+                widget.setPixmap(pixmap)
+                widget.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+
+            # thumbnail column
+            elif model_index.column() == 2:
                 widget.setMinimumSize(QtCore.QSize(96, 75))
                 widget.setMaximumSize(QtCore.QSize(96, 75))
                 widget.setScaledContents(True)
@@ -124,9 +136,9 @@ class FileDelegate(EditSelectedWidgetDelegate):
                     data = sg_data
 
                 # format some data before displaying them
-                if model_index.column() == 2:
+                if model_index.column() == 3:
                     data = "<b style='color:#18A7E3;'>{}</b>".format(data)
-                elif model_index.column() == 4:
+                elif model_index.column() == 5:
                     data = "v%03d" % int(data)
 
                 widget.setText(data)
@@ -142,12 +154,14 @@ class FileDelegate(EditSelectedWidgetDelegate):
         if model_index.column() == 0:
             return QtCore.QSize(17, 75)
         elif model_index.column() == 1:
-            return QtCore.QSize(96, 75)
+            return QtCore.QSize(40, 75)
         elif model_index.column() == 2:
-            return QtCore.QSize(150, 75)
+            return QtCore.QSize(96, 75)
         elif model_index.column() == 3:
-            return QtCore.QSize(100, 75)
+            return QtCore.QSize(150, 75)
         elif model_index.column() == 4:
+            return QtCore.QSize(100, 75)
+        elif model_index.column() == 5:
             return QtCore.QSize(75, 75)
         else:
             return super(FileDelegate, self).sizeHint(style_options, model_index)

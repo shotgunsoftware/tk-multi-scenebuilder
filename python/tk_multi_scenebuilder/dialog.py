@@ -70,6 +70,15 @@ class AppDialog(QtGui.QWidget):
             )
         self._loader_manager = loader_app.create_loader_manager()
 
+        # create a breakdown manager using the breakdown2 application
+        # this manager will be used to scan the current scene and update references
+        breakdown_app = current_engine.apps.get("tk-multi-breakdown2")
+        if not breakdown_app:
+            raise TankError(
+                "Please make sure the Breakdown2 App is configured for this context."
+            )
+        self._breakdown_manager = breakdown_app.create_breakdown_manager()
+
         # get the presets list from the app settings
         presets = self._bundle.get_setting("presets")
         preset_titles = [p["title"] for p in presets]
@@ -77,7 +86,7 @@ class AppDialog(QtGui.QWidget):
 
         # finally, create the model used to retrieve the files, and connect it to the view using a custom delegate
         self._model = FileModel(
-            self, bg_task_manager=self._bg_task_manager, loader_app=loader_app
+            self, bg_task_manager=self._bg_task_manager, loader_app=loader_app, breakdown_manager=self._breakdown_manager,
         )
         self._ui.view.setModel(self._model)
 
@@ -121,31 +130,65 @@ class AppDialog(QtGui.QWidget):
         """
 
         # collect all the items we're using to build the scene
-        items = []
+        items = {}
+        items_to_update = {}
         for row in range(self._model.rowCount()):
 
             # only load the selected items
             state_item = self._model.item(row, 0)
+            status_item = self._model.item(row, 1)
             if state_item.checkState() == QtCore.Qt.CheckState.Checked:
 
                 sg_data = state_item.data(FileModel.SG_DATA_ROLE)
                 action_name = state_item.data(FileModel.ACTION_ROLE)
+                file_status = status_item.data(FileModel.STATUS_ROLE)
 
-                items.append({"sg_data": sg_data, "action_name": action_name})
+                if file_status == FileModel.STATUS_UP_TO_DATE:
+                    self._bundle.logger.debug("File already loaded to the current scene: do nothing")
+                    action_status = "do_nothing"
+                elif file_status == FileModel.STATUS_OUT_OF_SYNC:
+                    self._bundle.logger.debug("File out of date: update to the latest version")
+                    action_status = "update"
+                    scene_item = status_item.data(FileModel.SCENE_ITEM_ROLE)
+                    items_to_update[scene_item.sg_data["id"]] = scene_item
+                else:
+                    self._bundle.logger.debug("File not loaded: import it for the first time")
+                    action_status = "load"
+
+                item_data = {"sg_data": sg_data, "action_name": action_name, "action_status": action_status}
+                if action_status == "update":
+                    item_data["sg_data"] = self._model.item(row, 1).data(FileModel.SCENE_ITEM_ROLE).sg_data
+                items[row] = item_data
+                # items.append(item_data)
 
         # then run the pre-build actions, load the files and finally execute the post-build actions
-        self._bundle.execute_hook_method("actions_hook", "pre_build_action", items=items)
+        self._bundle.execute_hook_method("actions_hook", "pre_build_action", items=items.values())
 
-        for item in items:
-            # use the loader manager to perform the load actions
-            loader_actions = self._loader_manager.get_actions_for_publish(
-                item["sg_data"], self._loader_manager.UI_AREA_MAIN
-            )
-            for action in loader_actions:
-                if action["name"] == item["action_name"]:
-                    self._loader_manager.execute_action(item["sg_data"], action)
+        for row, item_data in items.items():
 
-        self._bundle.execute_hook_method("actions_hook", "post_build_action", items=items)
+            if item_data["action_status"] == "do_nothing":
+                continue
+
+            elif item_data["action_status"] == "load":
+
+                # use the loader manager to perform the load actions
+                loader_actions = self._loader_manager.get_actions_for_publish(
+                    item_data["sg_data"], self._loader_manager.UI_AREA_MAIN
+                )
+                for action in loader_actions:
+                    if action["name"] == item_data["action_name"]:
+                        self._loader_manager.execute_action(item_data["sg_data"], action)
+
+            elif item_data["action_status"] == "update":
+                scene_item = items_to_update.get(item_data["sg_data"]["id"])
+                self._breakdown_manager.get_latest_published_file(scene_item)
+                self._breakdown_manager.update_to_latest_version(scene_item)
+
+            # finally update the model to indicate that the item is now up-to-date
+            status_item = self._model.item(row, 1)
+            status_item.setData(FileModel.STATUS_UP_TO_DATE, FileModel.STATUS_ROLE)
+
+        self._bundle.execute_hook_method("actions_hook", "post_build_action", items=items.values())
 
     def _load_model_data(self):
         """

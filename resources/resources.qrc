@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/tk-multi-scenebuilder">
+        <file>missing.png</file>
+        <file>outofdate.png</file>
+        <file>uptodate.png</file>
+    </qresource>
+</RCC>

@@ -25,10 +25,21 @@ class FileModel(QtGui.QStandardItemModel):
     in the config. Each Published File is represented by a row in the model where the columns are SG fields.
     """
 
-    SG_DATA_ROLE = QtCore.Qt.UserRole + 32
-    ACTION_ROLE = QtCore.Qt.UserRole + 33
+    _BASE_ROLE = QtCore.Qt.UserRole + 32
+    (
+        SG_DATA_ROLE,
+        ACTION_ROLE,
+        STATUS_ROLE,
+        SCENE_ITEM_ROLE,
+    ) = range(_BASE_ROLE, _BASE_ROLE + 4)
 
-    def __init__(self, parent, bg_task_manager, loader_app):
+    (
+        STATUS_UP_TO_DATE,
+        STATUS_OUT_OF_SYNC,
+        STATUS_NOT_LOADED
+    ) = range(3)
+
+    def __init__(self, parent, bg_task_manager, loader_app, breakdown_manager):
         """
         Class constructor.
 
@@ -36,12 +47,15 @@ class FileModel(QtGui.QStandardItemModel):
         :param bg_task_manager: A BackgroundTaskManager instance that will be used for all background/threaded
                                 work that needs undertaking
         :param loader_app:      Instance of the Loader application
+        :param breakdown_manager:
         """
 
         QtGui.QStandardItemModel.__init__(self, parent)
 
+        self._scene_items = []
         self._app = sgtk.platform.current_bundle()
         self._loader_app = loader_app
+        self._breakdown_manager = breakdown_manager
 
         self._pending_requests = {}
 
@@ -89,6 +103,9 @@ class FileModel(QtGui.QStandardItemModel):
         """
 
         self.clear()
+
+        # scan the scene to get all the already loaded items
+        self._scene_items = self._breakdown_manager.scan_scene()
 
         for preset in self._app.get_setting("presets"):
             if preset["title"] != preset_name:
@@ -140,15 +157,19 @@ class FileModel(QtGui.QStandardItemModel):
                 publishes_by_type = publishes_by_task.setdefault(
                     publish[self._publish_type_field]["id"], {}
                 )
-                publishes_by_name = publishes_by_type.get(publish["name"], None)
+                # publishes_by_name = publishes_by_type.setdefault(publish["name"], {})
+                publish_item = publishes_by_type.setdefault(publish["name"], None)
 
-                if publishes_by_name:
-                    # a more recent version has already been found, so skip this file
-                    continue
+                if publish_item:
+                    # already find a version for this file
+                    if publish_item.data(self.STATUS_ROLE) == self.STATUS_UP_TO_DATE:
+                        continue
+                    already_loaded, scene_item = self._is_publish_already_loaded(publish["id"])
+                    if already_loaded:
+                        publish_item.setData(self.STATUS_OUT_OF_SYNC, self.STATUS_ROLE)
+                        publish_item.setData(scene_item, self.SCENE_ITEM_ROLE)
 
                 else:
-
-                    publishes_by_type[publish["name"]] = publish
 
                     # get the action to perform according to the published file type
                     action_name = action_mappings.get(
@@ -164,6 +185,13 @@ class FileModel(QtGui.QStandardItemModel):
                     state_item.setData(publish, self.SG_DATA_ROLE)
                     state_item.setData(action_name, self.ACTION_ROLE)
                     row_items.append(state_item)
+
+                    status_item = QtGui.QStandardItem()
+                    if self._is_publish_already_loaded(publish["id"])[0]:
+                        status_item.setData(self.STATUS_UP_TO_DATE, self.STATUS_ROLE)
+                    else:
+                        status_item.setData(self.STATUS_NOT_LOADED, self.STATUS_ROLE)
+                    row_items.append(status_item)
 
                     # create an item for the thumbnail and download it in a background process
                     thumbnail_item = QtGui.QStandardItem()
@@ -181,6 +209,8 @@ class FileModel(QtGui.QStandardItemModel):
                             row_items.append(item)
 
                     self.insertRow(0, row_items)
+
+                    publishes_by_type[publish["name"]] = status_item
 
         elif request_type == "check_thumbnail":
             thumbnail_item = self._pending_requests.pop(uid)
@@ -204,3 +234,13 @@ class FileModel(QtGui.QStandardItemModel):
         self._app.logger.debug(
             "File Model: Failed to find sg_data for id %s: %s" % (uid, error_msg)
         )
+
+    def _is_publish_already_loaded(self, publish_id):
+        """
+        :param publish_id:
+        :return:
+        """
+        for scene_item in self._scene_items:
+            if scene_item.sg_data["id"] == publish_id:
+                return True, scene_item
+        return False, None
