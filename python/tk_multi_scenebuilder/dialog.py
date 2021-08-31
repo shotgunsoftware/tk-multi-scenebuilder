@@ -129,6 +129,8 @@ class AppDialog(QtGui.QWidget):
         The "load" actions are determined by the publish file type and what has been defined inside the configuration
         """
 
+        preset_name = self._ui.presets.currentText()
+
         # collect all the items we're using to build the scene
         items = {}
         items_to_update = {}
@@ -159,10 +161,9 @@ class AppDialog(QtGui.QWidget):
                 if action_status == "update":
                     item_data["sg_data"] = self._model.item(row, 1).data(FileModel.SCENE_ITEM_ROLE).sg_data
                 items[row] = item_data
-                # items.append(item_data)
 
         # then run the pre-build actions, load the files and finally execute the post-build actions
-        self._bundle.execute_hook_method("actions_hook", "pre_build_action", items=items.values())
+        self._bundle.execute_hook_method("actions_hook", "pre_build_action", preset=preset_name, items=items.values())
 
         for row, item_data in items.items():
 
@@ -188,7 +189,7 @@ class AppDialog(QtGui.QWidget):
             status_item = self._model.item(row, 1)
             status_item.setData(FileModel.STATUS_UP_TO_DATE, FileModel.STATUS_ROLE)
 
-        self._bundle.execute_hook_method("actions_hook", "post_build_action", items=items.values())
+        self._bundle.execute_hook_method("actions_hook", "post_build_action", preset=preset_name, items=items.values())
 
     def _load_model_data(self):
         """

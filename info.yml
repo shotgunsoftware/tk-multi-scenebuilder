@@ -18,6 +18,14 @@ configuration:
         description: "Hook allowing the user to run some pre and/or post build actions."
         default_value: "{self}/extra_build_actions.py"
 
+    extra_fields:
+        type: list
+        description: "A list of ShotGrid fields we'd like to return when querying for the Published Files."
+        default_value: []
+        allows_empty: True
+        values:
+            type: str
+
     presets:
         type: list
         description: "A list of presets a user can choose when building his scene."

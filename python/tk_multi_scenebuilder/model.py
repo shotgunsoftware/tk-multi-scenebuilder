@@ -107,6 +107,9 @@ class FileModel(QtGui.QStandardItemModel):
         # scan the scene to get all the already loaded items
         self._scene_items = self._breakdown_manager.scan_scene()
 
+        # from the app configuration, get the extra fields we want to return when querying for the Published Files
+        extra_fields = self._app.get_setting("extra_fields")
+
         for preset in self._app.get_setting("presets"):
             if preset["title"] != preset_name:
                 continue
@@ -122,7 +125,7 @@ class FileModel(QtGui.QStandardItemModel):
                 # ensure we have all the SG fields needed by the loader application to perform its actions
                 fields = self._loader_app.import_module(
                     "tk_multi_loader.constants"
-                ).PUBLISHED_FILES_FIELDS + [self._publish_type_field]
+                ).PUBLISHED_FILES_FIELDS + [self._publish_type_field] + extra_fields
                 filters = resolve_filters(action["context"]) + [publish_type_filters]
                 order = [{"field_name": "version_number", "direction": "desc"}]
 

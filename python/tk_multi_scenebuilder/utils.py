@@ -47,6 +47,8 @@ def resolve_filters(filters):
                         field = None
                 elif field == "{context.task}":
                     field = app.context.task
+                elif field == "{context.task.name}":
+                    field = app.context.task.get("name")
                 elif field == "{context.user}":
                     field = app.context.user
                 resolved_filter.append(field)
