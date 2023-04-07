@@ -1,0 +1,74 @@
+# Copyright (c) 2021 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+
+# Metadata defining the behavior and requirements for this app
+
+# expected fields in the configuration file for this app
+configuration:
+
+    actions_hook:
+        type: hook
+        description: "Hook allowing the user to run some pre and/or post build actions."
+        default_value: "{self}/extra_build_actions.py"
+
+    presets:
+        type: list
+        description: "A list of presets a user can choose when building his scene."
+        default_value: []
+        values:
+            type: dict
+            items:
+                name:
+                    type: str
+                    allows_empty: False
+                    description: "The preset name. This value will be used in the combobox allowing the user to choose
+                                  which preset he wants to use."
+                actions:
+                    type: list
+                    description: "A list of dictionary. For each item of the list, we can define a set of Shotgun
+                                  filters to define the context we want to get the published files from as well as
+                                  a list of mappings between the Published File type and the action to execute when
+                                  loading the file. These mappings must matched the one defined in the Loader application
+                                  settings."
+                    default_value: []
+                    values:
+                        type: dict
+                        items:
+                            context:
+                                type: list
+                                description: "A list of Shotgun filters used to define the context we want to get the
+                                              published files from."
+                                values:
+                                    type: shotgun_filter
+                            action_mappings:
+                                type: dict
+                                description: "A dictionary where the key is a Published File Type and the value is the
+                                              action name we want to perform when loading the file."
+
+# this app works in all engines - it does not contain
+# any host application specific commands
+supported_engines:
+
+# the Shotgun fields that this app needs in order to operate correctly
+requires_shotgun_fields:
+
+# More verbose description of this item
+display_name: "Scene Builder"
+description: "Automate the build of your scene by helping retrieving and loading published files."
+
+# Required minimum versions for this item to run
+requires_shotgun_version:
+requires_core_version: "v0.19.1"
+requires_engine_version:
+
+# the frameworks required to run this app
+frameworks:
+    - {"name": "tk-framework-shotgunutils", "version": "v5.x.x", "minimum_version": "v5.2.1"}
+    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x"}
