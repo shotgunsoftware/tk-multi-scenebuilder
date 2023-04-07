@@ -26,7 +26,6 @@ shotgun_globals = sgtk.platform.import_framework(
 
 
 class AppDialog(QtGui.QWidget):
-
     def __init__(self, parent=None):
         """
         Class constructor.
@@ -161,7 +160,9 @@ class AppDialog(QtGui.QWidget):
                     )
 
         # now, it's time to launch the build process!
-        self._bundle.execute_hook_method("actions_hook", "pre_build_action", items=hook_data)
+        self._bundle.execute_hook_method(
+            "actions_hook", "pre_build_action", items=hook_data
+        )
 
         for item in items_to_process:
 
@@ -189,5 +190,9 @@ class AppDialog(QtGui.QWidget):
             # update the item status now that it is has been loaded/updated
             self._model.set_status(item, status=FileModel.STATUS_UP_TO_DATE)
 
-        self._bundle.execute_hook_method("actions_hook", "process_missing_files", items=items_to_be_deleted)
-        self._bundle.execute_hook_method("actions_hook", "post_build_action", items=hook_data)
+        self._bundle.execute_hook_method(
+            "actions_hook", "process_missing_files", items=items_to_be_deleted
+        )
+        self._bundle.execute_hook_method(
+            "actions_hook", "post_build_action", items=hook_data
+        )

@@ -55,7 +55,7 @@ def create_file_delegate(view):
                 "padding": 0,
                 "features": QtGui.QStyleOptionButton.Flat,
                 "get_data": get_status_icon,
-            }
+            },
         ],
         ViewItemDelegate.LEFT,
     )
@@ -80,7 +80,10 @@ def get_file_item_state(parent, index):
     if index.data(FileModel.TYPE_ROLE) == FileModel.GROUP_TYPE:
         return {"visible": False}
 
-    if index.data(FileModel.STATUS_ROLE) in [FileModel.STATUS_MISSING, FileModel.STATUS_UP_TO_DATE]:
+    if index.data(FileModel.STATUS_ROLE) in [
+        FileModel.STATUS_MISSING,
+        FileModel.STATUS_UP_TO_DATE,
+    ]:
         return {"visible": False}
 
     checkbox_state = index.data(QtCore.Qt.CheckStateRole)
@@ -120,7 +123,4 @@ def get_status_icon(parent, index):
     icon_path = FileModel.STATUS_ICON_PATHS.get(status)
     icon = QtGui.QIcon(icon_path)
 
-    return {
-        "visible": True,
-        "icon": icon
-    }
+    return {"visible": True, "icon": icon}

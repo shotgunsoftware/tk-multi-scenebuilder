@@ -12,8 +12,7 @@ import sgtk
 
 
 class SceneBuilderApp(sgtk.platform.Application):
-    """
-    """
+    """ """
 
     def init_app(self):
         """

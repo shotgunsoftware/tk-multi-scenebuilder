@@ -13,7 +13,9 @@ from sgtk.platform.qt import QtCore, QtGui
 
 from .utils import resolve_filters
 
-shotgun_data = sgtk.platform.import_framework("tk-framework-shotgunutils", "shotgun_data")
+shotgun_data = sgtk.platform.import_framework(
+    "tk-framework-shotgunutils", "shotgun_data"
+)
 ShotgunDataRetriever = shotgun_data.ShotgunDataRetriever
 
 delegates = sgtk.platform.import_framework("tk-framework-qtwidgets", "delegates")
@@ -34,15 +36,10 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         STATUS_ROLE,
         TYPE_ROLE,
         BREAKDOWN_DATA_ROLE,
-        NEXT_AVAILABLE_ROLE
+        NEXT_AVAILABLE_ROLE,
     ) = range(_BASE_ROLE, _BASE_ROLE + 7)
 
-    (
-        STATUS_UP_TO_DATE,
-        STATUS_OUTDATED,
-        STATUS_NOT_LOADED,
-        STATUS_MISSING
-    ) = range(4)
+    (STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_MISSING) = range(4)
 
     GROUP_NAMES = {
         STATUS_UP_TO_DATE: "Files already imported",
@@ -238,11 +235,15 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             # first, go through each published files to check if they have already been loaded to the scene
             for publish in data["sg"]:
 
-                action_name = action_mappings.get(publish["published_file_type"]["name"])
+                action_name = action_mappings.get(
+                    publish["published_file_type"]["name"]
+                )
 
                 # make sure we're only keeping the latest version of each file and not the whole history
                 publishes_by_task = publishes.setdefault(publish["task"]["id"], {})
-                publishes_by_type = publishes_by_task.setdefault(publish["published_file_type"]["id"], {})
+                publishes_by_type = publishes_by_task.setdefault(
+                    publish["published_file_type"]["id"], {}
+                )
                 publish_item = publishes_by_type.setdefault(publish["name"], None)
 
                 # if we already have a publish item, make sure its status is correctly set
@@ -269,7 +270,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             for obj in self._scene_objs:
 
                 publishes_by_task = publishes.get(obj.sg_data["task"]["id"], {})
-                publishes_by_type = publishes_by_task.get(obj.sg_data["published_file_type"]["id"], {})
+                publishes_by_type = publishes_by_task.get(
+                    obj.sg_data["published_file_type"]["id"], {}
+                )
                 publish_item = publishes_by_type.get(obj.sg_data["name"], None)
 
                 # the scene element doesn't have an associated publish file, we need to flag it to be removed
