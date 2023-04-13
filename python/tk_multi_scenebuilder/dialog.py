@@ -89,7 +89,9 @@ class AppDialog(QtGui.QWidget):
 
         # # widget connections
         self._ui.build_button.clicked.connect(self.build_scene)
-        # self._ui.presets.currentIndexChanged.connect(self._load_model_data)
+        self._ui.presets.currentIndexChanged.connect(
+            lambda idx: self._model.load_data(self._ui.presets.itemText(idx))
+        )
 
         # finally load the model data
         self._model.load_data(self._ui.presets.currentText())

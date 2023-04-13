@@ -156,6 +156,14 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         # Add additional roles defined by the ViewItemRolesMixin class.
         self.NEXT_AVAILABLE_ROLE = self.initialize_roles(self.NEXT_AVAILABLE_ROLE)
 
+    def clear(self):
+        """Clear the model data"""
+
+        self._parent_items = {}
+        self._pending_requests = {}
+
+        super(FileModel, self).clear()
+
     def destroy(self):
         """
         Called to clean-up and shutdown any internal objects when the model has been finished
@@ -184,6 +192,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             return
 
         # scan the scene to get all the already loaded items
+        # TODO: should we move this to the model constructor?
         self._scene_objs = self._breakdown_manager.scan_scene()
 
         for preset in self._bundle.get_setting("presets"):
@@ -229,7 +238,6 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         if request_type == "find":
 
             publishes = {}
-            # publish_items = []
             action_mappings = self._pending_requests.pop(uid)
 
             # first, go through each published files to check if they have already been loaded to the scene
@@ -258,7 +266,6 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     self.set_status(publish_item, publish)
                     self._set_parent(publish_item)
                     publishes_by_type[publish["name"]] = publish_item
-                    # publish_items.append(publish_item)
 
                     # get the thumbnail
                     thumbnail_id = self._sg_data_retriever.request_thumbnail(
@@ -282,17 +289,12 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     publish_item.setData(QtCore.Qt.Checked, QtCore.Qt.CheckStateRole)
                     publish_item.setData(self.STATUS_MISSING, self.STATUS_ROLE)
                     self._set_parent(publish_item)
-                    # publish_items.append(publish_item)
 
                     # get the thumbnail
                     thumbnail_id = self._sg_data_retriever.request_thumbnail(
                         publish["image"], publish["type"], publish["id"], "image"
                     )
                     self._pending_requests[thumbnail_id] = publish_item
-
-            # finally, parent all the items
-            # for item in publish_items:
-            #     self._set_parent(item)
 
         elif request_type == "check_thumbnail":
 
