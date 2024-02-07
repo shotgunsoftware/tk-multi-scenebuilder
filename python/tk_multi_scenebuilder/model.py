@@ -24,8 +24,8 @@ ViewItemRolesMixin = delegates.ViewItemRolesMixin
 
 class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
     """
-    The FileModel maintains a model of all the Published Files found when querying SG according to the settings defined
-    in the config. Each Published File is represented by a row in the model where the columns are SG fields.
+    The FileModel maintains a model of all the Published Files found when querying PTR according to the settings defined
+    in the config. Each Published File is represented by a row in the model where the columns are PTR fields.
     """
 
     _BASE_ROLE = QtCore.Qt.UserRole + 32
@@ -143,7 +143,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         self._loader_app = loader_app
         self._breakdown_manager = breakdown_manager
 
-        # sg data retriever is used to download thumbnails and perform SG queries in the background
+        # sg data retriever is used to download thumbnails and perform PTR queries in the background
         self._sg_data_retriever = ShotgunDataRetriever(bg_task_manager=bg_task_manager)
         self._sg_data_retriever.work_completed.connect(
             self._on_data_retriever_work_completed
@@ -208,14 +208,14 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     list(action["action_mappings"].keys()),
                 ]
 
-                # ensure we have all the SG fields needed by the loader application to perform its actions
+                # ensure we have all the PTR fields needed by the loader application to perform its actions
                 fields = self._loader_app.import_module(
                     "tk_multi_loader.constants"
                 ).PUBLISHED_FILES_FIELDS + ["published_file_type"]
                 filters = resolve_filters(action["context"]) + [publish_type_filters]
                 order = [{"field_name": "version_number", "direction": "desc"}]
 
-                # execute SG query in the background
+                # execute PTR query in the background
                 find_uid = self._sg_data_retriever.execute_find(
                     "PublishedFile", filters, fields, order
                 )
