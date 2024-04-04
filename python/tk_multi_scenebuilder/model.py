@@ -241,6 +241,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             action_mappings = self._pending_requests.pop(uid)
 
             # first, go through each published files to check if they have already been loaded to the scene
+            # NOTE this routine depends on the published files sorted in descending order of version number,
+            # e.g. latest version first, so that we can create the FileItem with the first published file
+            # that is encountered
             for publish in data["sg"]:
 
                 action_name = action_mappings.get(
@@ -254,12 +257,11 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                 )
                 publish_item = publishes_by_type.setdefault(publish["name"], None)
 
-                # if we already have a publish item, make sure its status is correctly set
                 if publish_item:
+                    # We already have a publish item, make sure its status is correctly set
                     self.set_status(publish_item, publish)
-
                 else:
-
+                    # No publish item exists, create the FileItem with the latest version of the published file
                     publish_item = FileModel.FileItem(publish)
                     publish_item.setData(QtCore.Qt.Checked, QtCore.Qt.CheckStateRole)
                     publish_item.setData(action_name, self.ACTION_ROLE)
@@ -326,22 +328,20 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         item_status = item.data(self.STATUS_ROLE)
 
         if not status and sg_data:
-
             already_loaded, scene_obj = self._is_publish_already_loaded(sg_data["id"])
+            file_item_sg_data = item.data(self.SG_DATA_ROLE)
+            file_item_version_number = file_item_sg_data["version_number"]
 
-            # if the item status is not already set, that means we're dealing with the latest version of the published
-            # file
-            if not item_status:
+            # Check the file item version number against the given sg data. If the sg
+            # data represents an older published file, it will be skipped.
+            if file_item_version_number == sg_data["version_number"]:
                 # if the file is already loaded to the scene, we have nothing to do
                 if already_loaded:
                     status = self.STATUS_UP_TO_DATE
                 # otherwise, flag it to be loaded
                 else:
                     status = self.STATUS_NOT_LOADED
-
-            # if the status of the item has already been set, that means we are dealing with an older version of
-            # the published file
-            else:
+            elif file_item_version_number > sg_data["version_number"]:
                 # if the file is already loaded to the scene, that means the version is out-dated
                 if already_loaded:
                     status = self.STATUS_OUTDATED
