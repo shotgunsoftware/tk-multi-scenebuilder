@@ -325,30 +325,33 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
     def set_status(self, item, sg_data=None, status=None):
         """Set the item status"""
 
+        # Get the current item status
         item_status = item.data(self.STATUS_ROLE)
 
+        # If no status is explicitly given, set the status of the item based on the given sg data
         if not status and sg_data:
+            # Check if the new sg data is already loaded in the scene
             already_loaded, scene_obj = self._is_publish_already_loaded(sg_data["id"])
+
             file_item_sg_data = item.data(self.SG_DATA_ROLE)
             file_item_version_number = file_item_sg_data["version_number"]
 
-            # Check the file item version number against the given sg data. If the sg
-            # data represents an older published file, it will be skipped.
             if file_item_version_number == sg_data["version_number"]:
-                # if the file is already loaded to the scene, we have nothing to do
-                if already_loaded:
-                    status = self.STATUS_UP_TO_DATE
-                # otherwise, flag it to be loaded
-                else:
-                    status = self.STATUS_NOT_LOADED
-            elif file_item_version_number > sg_data["version_number"]:
-                # if the file is already loaded to the scene, that means the version is out-dated
+                # The sg data matches the current item data, set the status based on if it is
+                # already loaded or not
+                status = self.STATUS_UP_TO_DATE if already_loaded else self.STATUS_NOT_LOADED
+
+            elif file_item_version_number < sg_data["version_number"]:
+                # The current item is outdated, there is a newer version available
                 if already_loaded:
                     status = self.STATUS_OUTDATED
                     item.setData(scene_obj, self.BREAKDOWN_DATA_ROLE)
                 # otherwise, we don't care about the file
                 else:
                     return
+            else:
+                # The sg data is older than the current item data, we don't care about it
+                return
 
         item.setData(status, self.STATUS_ROLE)
 
