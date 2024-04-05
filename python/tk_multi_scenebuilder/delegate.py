@@ -32,8 +32,6 @@ def create_file_delegate(view):
     view.setMouseTracking(True)
 
     # set the delegate properties
-    delegate.item_padding = ViewItemDelegate.Padding(2, 7, 7, 7)
-    delegate.text_padding = ViewItemDelegate.Padding(2, 7, 7, 7)
     delegate.selection_brush = QtCore.Qt.NoBrush
     delegate.show_hover_selection = False
     delegate.thumbnail_width = 150
@@ -52,7 +50,6 @@ def create_file_delegate(view):
                 "icon": QtGui.QIcon(),  # The get_data callback will set the icon based on status
                 "icon_size": QtCore.QSize(20, 20),
                 "show_always": True,
-                "padding": 0,
                 "features": QtGui.QStyleOptionButton.Flat,
                 "get_data": get_status_icon,
             },
