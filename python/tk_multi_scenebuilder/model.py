@@ -337,26 +337,18 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         if not status and sg_data:
             # Check if the new sg data is already loaded in the scene
             already_loaded, scene_obj = self._is_publish_already_loaded(sg_data["id"])
-
             file_item_sg_data = item.data(self.SG_DATA_ROLE)
-            file_item_version_number = file_item_sg_data["version_number"]
 
-            if file_item_version_number == sg_data["version_number"]:
+            if file_item_sg_data["id"] == sg_data["id"]:
                 # The sg data matches the current item data, set the status based on if it is
                 # already loaded or not
                 status = self.STATUS_UP_TO_DATE if already_loaded else self.STATUS_NOT_LOADED
-
-            elif file_item_version_number < sg_data["version_number"]:
-                # The current item is outdated, there is a newer version available
-                if already_loaded:
-                    status = self.STATUS_OUTDATED
-                    item.setData(scene_obj, self.BREAKDOWN_DATA_ROLE)
-                # otherwise, we don't care about the file
-                else:
-                    return
+            elif already_loaded:
+                # The file that was loaded for this item is now out of date
+                status = self.STATUS_OUTDATED
+                item.setData(scene_obj, self.BREAKDOWN_DATA_ROLE)
             else:
-                # The sg data is older than the current item data, we don't care about it
-                return
+                return  # Nothing to do
 
         item.setData(status, self.STATUS_ROLE)
 
