@@ -42,10 +42,10 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
     (STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_MISSING) = range(4)
 
     GROUP_NAMES = {
-        STATUS_UP_TO_DATE: "Files already imported",
-        STATUS_OUTDATED: "Files out-dated",
-        STATUS_NOT_LOADED: "Files to import",
-        STATUS_MISSING: "Missing files",
+        STATUS_UP_TO_DATE: "Assets Imported",
+        STATUS_OUTDATED: "Assets Out of Date",
+        STATUS_NOT_LOADED: "Assets to Import",
+        STATUS_MISSING: "Missing Assets",
     }
 
     STATUS_ICON_PATHS = {
@@ -112,9 +112,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             if role == FileModel.TEXT_ROLE:
                 return f"""
                 <span style='color: #18A7E3;'>Entity</span> {self.__sg_data.get('entity', {}).get('name')}<br/>
+                <span style='color: #18A7E3;'>Name</span> {self.__sg_data.get('name', "")}<br/>
                 <span style='color: #18A7E3;'>Type</span> {self.__sg_data.get('published_file_type', {}).get('name')}<br/>
                 <span style='color: #18A7E3;'>Version</span> {self.__sg_data.get('version_number')}<br/>
-                <span style='color: #18A7E3;'>Path</span> {self.__sg_data.get('path', {}).get('local_path')}<br/>
                 """
 
             elif role == FileModel.SG_DATA_ROLE:
