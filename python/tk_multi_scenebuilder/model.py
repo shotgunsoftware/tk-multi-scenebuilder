@@ -60,6 +60,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         FILE_TYPE,
     ) = range(2)
 
+    # Signal emitted when all data loaded
+    data_loaded = QtCore.Signal()
+
     class GroupItem(QtGui.QStandardItem):
         """Model item to group PublishedFiles together according to their status"""
 
@@ -297,6 +300,8 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                         publish["image"], publish["type"], publish["id"], "image"
                     )
                     self._pending_requests[thumbnail_id] = publish_item
+            
+            self.data_loaded.emit()
 
         elif request_type == "check_thumbnail":
 
