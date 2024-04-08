@@ -300,7 +300,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                         publish["image"], publish["type"], publish["id"], "image"
                     )
                     self._pending_requests[thumbnail_id] = publish_item
-            
+
             self.data_loaded.emit()
 
         elif request_type == "check_thumbnail":
@@ -342,7 +342,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             if file_item_sg_data["id"] == sg_data["id"]:
                 # The sg data matches the current item data, set the status based on if it is
                 # already loaded or not
-                status = self.STATUS_UP_TO_DATE if already_loaded else self.STATUS_NOT_LOADED
+                status = (
+                    self.STATUS_UP_TO_DATE if already_loaded else self.STATUS_NOT_LOADED
+                )
             elif already_loaded:
                 # The file that was loaded for this item is now out of date
                 status = self.STATUS_OUTDATED
