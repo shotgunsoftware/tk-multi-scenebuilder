@@ -42,10 +42,10 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
     (STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_MISSING) = range(4)
 
     GROUP_NAMES = {
-        STATUS_UP_TO_DATE: "Files already imported",
-        STATUS_OUTDATED: "Files out-dated",
-        STATUS_NOT_LOADED: "Files to import",
-        STATUS_MISSING: "Missing files",
+        STATUS_UP_TO_DATE: "Assets Imported",
+        STATUS_OUTDATED: "Assets Out of Date",
+        STATUS_NOT_LOADED: "Assets to Import",
+        STATUS_MISSING: "Missing Assets",
     }
 
     STATUS_ICON_PATHS = {
@@ -59,6 +59,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         GROUP_TYPE,
         FILE_TYPE,
     ) = range(2)
+
+    # Signal emitted when all data loaded
+    data_loaded = QtCore.Signal()
 
     class GroupItem(QtGui.QStandardItem):
         """Model item to group PublishedFiles together according to their status"""
@@ -109,9 +112,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             if role == FileModel.TEXT_ROLE:
                 return f"""
                 <span style='color: #18A7E3;'>Entity</span> {self.__sg_data.get('entity', {}).get('name')}<br/>
+                <span style='color: #18A7E3;'>Name</span> {self.__sg_data.get('name', "")}<br/>
                 <span style='color: #18A7E3;'>Type</span> {self.__sg_data.get('published_file_type', {}).get('name')}<br/>
                 <span style='color: #18A7E3;'>Version</span> {self.__sg_data.get('version_number')}<br/>
-                <span style='color: #18A7E3;'>Path</span> {self.__sg_data.get('path', {}).get('local_path')}<br/>
                 """
 
             elif role == FileModel.SG_DATA_ROLE:
@@ -241,6 +244,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             action_mappings = self._pending_requests.pop(uid)
 
             # first, go through each published files to check if they have already been loaded to the scene
+            # NOTE this routine depends on the published files sorted in descending order of version number,
+            # e.g. latest version first, so that we can create the FileItem with the first published file
+            # that is encountered
             for publish in data["sg"]:
 
                 action_name = action_mappings.get(
@@ -254,12 +260,11 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                 )
                 publish_item = publishes_by_type.setdefault(publish["name"], None)
 
-                # if we already have a publish item, make sure its status is correctly set
                 if publish_item:
+                    # We already have a publish item, make sure its status is correctly set
                     self.set_status(publish_item, publish)
-
                 else:
-
+                    # No publish item exists, create the FileItem with the latest version of the published file
                     publish_item = FileModel.FileItem(publish)
                     publish_item.setData(QtCore.Qt.Checked, QtCore.Qt.CheckStateRole)
                     publish_item.setData(action_name, self.ACTION_ROLE)
@@ -296,6 +301,8 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     )
                     self._pending_requests[thumbnail_id] = publish_item
 
+            self.data_loaded.emit()
+
         elif request_type == "check_thumbnail":
 
             file_item = self._pending_requests.pop(uid)
@@ -323,32 +330,27 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
     def set_status(self, item, sg_data=None, status=None):
         """Set the item status"""
 
+        # Get the current item status
         item_status = item.data(self.STATUS_ROLE)
 
+        # If no status is explicitly given, set the status of the item based on the given sg data
         if not status and sg_data:
-
+            # Check if the new sg data is already loaded in the scene
             already_loaded, scene_obj = self._is_publish_already_loaded(sg_data["id"])
+            file_item_sg_data = item.data(self.SG_DATA_ROLE)
 
-            # if the item status is not already set, that means we're dealing with the latest version of the published
-            # file
-            if not item_status:
-                # if the file is already loaded to the scene, we have nothing to do
-                if already_loaded:
-                    status = self.STATUS_UP_TO_DATE
-                # otherwise, flag it to be loaded
-                else:
-                    status = self.STATUS_NOT_LOADED
-
-            # if the status of the item has already been set, that means we are dealing with an older version of
-            # the published file
+            if file_item_sg_data["id"] == sg_data["id"]:
+                # The sg data matches the current item data, set the status based on if it is
+                # already loaded or not
+                status = (
+                    self.STATUS_UP_TO_DATE if already_loaded else self.STATUS_NOT_LOADED
+                )
+            elif already_loaded:
+                # The file that was loaded for this item is now out of date
+                status = self.STATUS_OUTDATED
+                item.setData(scene_obj, self.BREAKDOWN_DATA_ROLE)
             else:
-                # if the file is already loaded to the scene, that means the version is out-dated
-                if already_loaded:
-                    status = self.STATUS_OUTDATED
-                    item.setData(scene_obj, self.BREAKDOWN_DATA_ROLE)
-                # otherwise, we don't care about the file
-                else:
-                    return
+                return  # Nothing to do
 
         item.setData(status, self.STATUS_ROLE)
 

@@ -83,6 +83,7 @@ class AppDialog(QtGui.QWidget):
             breakdown_manager=self._breakdown_manager,
         )
         self._ui.view.setModel(self._model)
+        self._model.data_loaded.connect(lambda v=self._ui.view: v.expandAll())
 
         self._delegate = create_file_delegate(self._ui.view)
         self._ui.view.setItemDelegate(self._delegate)
@@ -95,7 +96,6 @@ class AppDialog(QtGui.QWidget):
 
         # finally load the model data
         self._model.load_data(self._ui.presets.currentText())
-        self._ui.view.expandAll()
 
     def closeEvent(self, event):
         """
