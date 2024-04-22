@@ -78,7 +78,7 @@ def get_file_item_state(parent, index):
         return {"visible": False}
 
     if index.data(FileModel.STATUS_ROLE) in [
-        FileModel.STATUS_MISSING,
+        FileModel.STATUS_INVALID,
         FileModel.STATUS_UP_TO_DATE,
     ]:
         return {"visible": False}

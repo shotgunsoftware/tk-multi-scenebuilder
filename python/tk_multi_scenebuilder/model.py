@@ -39,20 +39,20 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         NEXT_AVAILABLE_ROLE,
     ) = range(_BASE_ROLE, _BASE_ROLE + 7)
 
-    (STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_MISSING) = range(4)
+    (STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_INVALID) = range(4)
 
     GROUP_NAMES = {
-        STATUS_UP_TO_DATE: "Assets Imported",
-        STATUS_OUTDATED: "Assets Out of Date",
-        STATUS_NOT_LOADED: "Assets to Import",
-        STATUS_MISSING: "Missing Assets",
+        STATUS_UP_TO_DATE: "Loaded",
+        STATUS_OUTDATED: "Out of Date",
+        STATUS_NOT_LOADED: "Ready to Build",
+        STATUS_INVALID: "Invalid Loaded",
     }
 
     STATUS_ICON_PATHS = {
         STATUS_UP_TO_DATE: ":/tk-multi-scenebuilder/uptodate.png",
         STATUS_OUTDATED: ":/tk-multi-scenebuilder/outofdate.png",
         STATUS_NOT_LOADED: ":/tk-multi-scenebuilder/toload.png",
-        STATUS_MISSING: ":/tk-multi-scenebuilder/missing.png",
+        STATUS_INVALID: ":/tk-multi-scenebuilder/missing.png",
     }
 
     (
@@ -292,7 +292,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
 
                     publish_item = FileModel.FileItem(obj.sg_data)
                     publish_item.setData(QtCore.Qt.Checked, QtCore.Qt.CheckStateRole)
-                    publish_item.setData(self.STATUS_MISSING, self.STATUS_ROLE)
+                    publish_item.setData(self.STATUS_INVALID, self.STATUS_ROLE)
                     self._set_parent(publish_item)
 
                     # get the thumbnail
