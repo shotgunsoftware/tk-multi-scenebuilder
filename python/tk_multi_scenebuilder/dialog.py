@@ -198,3 +198,5 @@ class AppDialog(QtGui.QWidget):
         self._bundle.execute_hook_method(
             "actions_hook", "post_build_action", items=hook_data
         )
+
+        self._ui.view.expandAll()
