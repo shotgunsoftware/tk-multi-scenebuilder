@@ -140,7 +140,7 @@ class AppDialog(QtGui.QWidget):
 
                 # if we're dealing with the missing files, we just want to collect all of them to pass the list
                 # to a hook at build time
-                if group_item.data(FileModel.STATUS_ROLE) == FileModel.STATUS_MISSING:
+                if group_item.data(FileModel.STATUS_ROLE) == FileModel.STATUS_INVALID:
                     items_to_be_deleted.append(
                         {
                             "sg_data": file_item.data(FileModel.SG_DATA_ROLE),
@@ -166,30 +166,30 @@ class AppDialog(QtGui.QWidget):
             "actions_hook", "pre_build_action", items=hook_data
         )
 
+        actions_to_execute = []
         for item in items_to_process:
-
-            # the file has not been loaded yet, we want to do it!
             if item.data(FileModel.STATUS_ROLE) == FileModel.STATUS_NOT_LOADED:
-
+                # the file has not been loaded yet, we want to do it!
                 sg_data = item.data(FileModel.SG_DATA_ROLE)
                 action_name = item.data(FileModel.ACTION_ROLE)
-
                 loader_actions = self._loader_manager.get_actions_for_publish(
                     sg_data, self._loader_manager.UI_AREA_MAIN
                 )
                 for action in loader_actions:
                     if action["name"] == action_name:
-                        self._loader_manager.execute_action(sg_data, action)
+                        action["sg_publish_data"] = sg_data
+                        actions_to_execute.append(action)
                         break
-
-            # the file has already been loaded, we want to update to its latest version
             elif item.data(FileModel.STATUS_ROLE) == FileModel.STATUS_OUTDATED:
-
+                # the file has already been loaded, we want to update to its latest version
                 scene_obj = item.data(FileModel.BREAKDOWN_DATA_ROLE)
                 self._breakdown_manager.get_latest_published_file(scene_obj)
                 self._breakdown_manager.update_to_latest_version(scene_obj)
 
-            # update the item status now that it is has been loaded/updated
+        # execute all the actions
+        self._loader_manager.execute_multiple_actions(actions_to_execute)
+        # update the item status now that it is has been loaded/updated
+        for item in items_to_process:
             self._model.set_status(item, status=FileModel.STATUS_UP_TO_DATE)
 
         self._bundle.execute_hook_method(
@@ -198,3 +198,5 @@ class AppDialog(QtGui.QWidget):
         self._bundle.execute_hook_method(
             "actions_hook", "post_build_action", items=hook_data
         )
+
+        self._ui.view.expandAll()
