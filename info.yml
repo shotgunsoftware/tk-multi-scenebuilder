@@ -67,6 +67,7 @@ description: "Automate the build of your scene by helping retrieving and loading
 requires_shotgun_version:
 requires_core_version: "v0.19.1"
 requires_engine_version:
+minimum_python_version: "3.9"
 
 # the frameworks required to run this app
 frameworks:
