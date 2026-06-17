@@ -39,7 +39,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         NEXT_AVAILABLE_ROLE,
     ) = range(_BASE_ROLE, _BASE_ROLE + 7)
 
-    (STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_INVALID) = range(4)
+    STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_INVALID = range(4)
 
     GROUP_NAMES = {
         STATUS_UP_TO_DATE: "Loaded",
@@ -165,7 +165,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         self._parent_items = {}
         self._pending_requests = {}
 
-        super(FileModel, self).clear()
+        super().clear()
 
     def destroy(self):
         """
