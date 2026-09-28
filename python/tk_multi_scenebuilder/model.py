@@ -212,9 +212,11 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                 ]
 
                 # ensure we have all the PTR fields needed by the loader application to perform its actions
-                fields = self._loader_app.import_module(
-                    "tk_multi_loader.constants"
-                ).PUBLISHED_FILES_FIELDS + ["published_file_type"]
+                tk_multi_loader_constants = self._loader_app.import_module("tk_multi_loader.constants")
+                fields = getattr(tk_multi_loader_constants, "PUBLISHED_FILES_FIELDS", None)
+                if not fields:
+                    fields = getattr(tk_multi_loader_constants, "ENTITY_TYPE_DETAIL_PANEL_FIELDS ", {}).get("PublishedFile", [])
+                fields += ["published_file_type"]
                 filters = resolve_filters(action["context"]) + [publish_type_filters]
                 order = [{"field_name": "version_number", "direction": "desc"}]
 
