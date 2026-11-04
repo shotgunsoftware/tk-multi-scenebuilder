@@ -14,7 +14,7 @@ resources:
     - repository: templates
       type: github
       name: shotgunsoftware/tk-ci-tools
-      ref: refs/heads/fix/png-profile-check-without-pngcrush
+      ref: fix/png-profile-check-without-pngcrush
       endpoint: shotgunsoftware
 
 # We want builds to trigger for 3 reasons:
