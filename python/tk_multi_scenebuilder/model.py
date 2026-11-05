@@ -222,6 +222,10 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     fields = getattr(
                         tk_multi_loader_constants, "ENTITY_TYPE_DETAIL_PANEL_FIELDS", {}
                     ).get("PublishedFile", [])
+                if not fields:
+                    raise RuntimeError(
+                        "No PublishedFile query fields could be resolved from the Loader app."
+                    )
                 fields += ["published_file_type"]
                 filters = resolve_filters(action["context"]) + [publish_type_filters]
                 order = [{"field_name": "version_number", "direction": "desc"}]
