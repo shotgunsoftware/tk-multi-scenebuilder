@@ -226,7 +226,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     raise RuntimeError(
                         "No PublishedFile query fields could be resolved from the Loader app."
                     )
-                fields += ["published_file_type"]
+                fields = list(fields) + ["published_file_type"]
                 filters = resolve_filters(action["context"]) + [publish_type_filters]
                 order = [{"field_name": "version_number", "direction": "desc"}]
 
