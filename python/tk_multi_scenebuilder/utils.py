@@ -32,21 +32,47 @@ def get_upstream_steps():
     return list(app.get_setting("step_dependencies").get(step["name"], []))
 
 
-def has_empty_list_value(filters):
+def prune_empty_list_filters(filters, filter_operator="all"):
     """
-    Check whether any of the given filters has an empty list as value, which
-    Flow Production Tracking cannot query, e.g. [step.Step.code, in, []].
+    Remove the filters that have an empty list as value, which Flow Production
+    Tracking cannot query, e.g. [step.Step.code, in, []].
+
+    Such a filter matches nothing, except with the `not_in` operator, where it does
+    not restrict anything. An "all" group matches nothing when any of its filters
+    matches nothing, an "any" group only when all of them do.
 
     :param filters: A list of resolved filters, as returned by `resolve_filters`
-    :return: True if at least one filter has an empty list value, False otherwise
+    :param filter_operator: How the filters are combined, "all" or "any"
+    :return: The pruned list of filters, or None if they cannot match anything
     """
+    match_any = filter_operator in ("any", "or")
+    pruned = []
     for filter in filters:
         if type(filter) is dict:
-            if has_empty_list_value(filter["filters"]):
-                return True
+            sub_filters = prune_empty_list_filters(
+                filter["filters"], filter["filter_operator"]
+            )
+            if sub_filters:
+                pruned.append(
+                    {
+                        "filter_operator": filter["filter_operator"],
+                        "filters": sub_filters,
+                    }
+                )
+                continue
+            unrestricted = sub_filters is not None
         elif any(value == [] for value in filter[2:]):
-            return True
-    return False
+            unrestricted = filter[1] == "not_in"
+        else:
+            pruned.append(filter)
+            continue
+        if match_any and unrestricted:
+            return []
+        if not match_any and not unrestricted:
+            return None
+    if match_any and not pruned:
+        return None
+    return pruned
 
 
 def resolve_filters(filters):

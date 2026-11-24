@@ -13,7 +13,7 @@ import html
 import sgtk
 from sgtk.platform.qt import QtCore, QtGui
 
-from .utils import has_empty_list_value, resolve_filters
+from .utils import prune_empty_list_filters, resolve_filters
 
 shotgun_data = sgtk.platform.import_framework(
     "tk-framework-shotgunutils", "shotgun_data"
@@ -240,11 +240,13 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                         "No PublishedFile query fields could be resolved from the Loader app."
                     )
                 fields = list(fields) + ["published_file_type"]
-                context_filters = resolve_filters(action["context"])
-                if has_empty_list_value(context_filters):
+                context_filters = prune_empty_list_filters(
+                    resolve_filters(action["context"])
+                )
+                if context_filters is None:
                     self._bundle.logger.debug(
-                        "Skipping an action of preset '%s': a filter resolved to an "
-                        "empty list for the current context." % preset_name
+                        "Skipping an action of preset '%s': its filters cannot match "
+                        "anything for the current context." % preset_name
                     )
                     continue
                 filters = context_filters + [publish_type_filters]
