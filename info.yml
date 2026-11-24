@@ -52,6 +52,22 @@ configuration:
                                 description: "A dictionary where the key is a Published File Type and the value is the
                                               action name we want to perform when loading the file."
 
+    step_dependencies:
+        type: dict
+        description: "Maps a pipeline step to the list of upstream pipeline steps it
+                      pulls published files from, for example from asset steps into a
+                      shot step. Keys are matched against the current task's Step code
+                      and values against the published file task's Step code. Use the
+                      '{context.upstream_steps}' token in a preset filter to resolve
+                      the list for the current step, for example
+                      [task.Task.step.Step.code, in, '{context.upstream_steps}'].
+                      Preset actions are skipped for steps that are not listed, as
+                      there is nothing to pull."
+        default_value:
+            Animation: [Rig]
+            Layout: [Model, Rig, Texture]
+        allows_empty: True
+
 # this app works in all engines - it does not contain
 # any host application specific commands
 supported_engines:
@@ -72,4 +88,4 @@ minimum_python_version: "3.9"
 # the frameworks required to run this app
 frameworks:
     - {"name": "tk-framework-shotgunutils", "version": "v5.x.x", "minimum_version": "v5.2.1"}
-    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x"}
+    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x", "minimum_version": "v2.11.0"}

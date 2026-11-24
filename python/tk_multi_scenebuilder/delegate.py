@@ -17,6 +17,53 @@ delegates = sgtk.platform.import_framework("tk-framework-qtwidgets", "delegates"
 ViewItemDelegate = delegates.ViewItemDelegate
 ViewItemAction = delegates.ViewItemAction
 
+CHECKBOX_COLOR = "#18A7E3"
+CHECKBOX_SIZE = 22
+
+_checkbox_icons = {}
+
+
+def get_checkbox_icon(checked):
+    """
+    Get the icon used to draw the file item check box. DCC styles draw native
+    check boxes at a fixed size, so the check box is drawn from an icon instead.
+
+    :param checked: True for the checked icon, False for the unchecked one
+    :return: The check box icon
+    :rtype: :class:`sgtk.platform.qt.QtGui.QIcon`
+    """
+
+    if checked not in _checkbox_icons:
+        # draw at twice the displayed size to stay sharp on high-DPI screens
+        size = CHECKBOX_SIZE * 2
+        pixmap = QtGui.QPixmap(size, size)
+        pixmap.fill(QtCore.Qt.transparent)
+
+        painter = QtGui.QPainter(pixmap)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        color = QtGui.QColor(CHECKBOX_COLOR if checked else "#A0A0A0")
+        painter.setPen(QtGui.QPen(color, 3))
+        painter.setBrush(color if checked else QtCore.Qt.NoBrush)
+        painter.drawRoundedRect(QtCore.QRectF(3, 3, size - 6, size - 6), 6, 6)
+        if checked:
+            pen = QtGui.QPen(QtGui.QColor("white"), 5)
+            pen.setCapStyle(QtCore.Qt.RoundCap)
+            pen.setJoinStyle(QtCore.Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPolyline(
+                QtGui.QPolygonF(
+                    [
+                        QtCore.QPointF(size * 0.27, size * 0.52),
+                        QtCore.QPointF(size * 0.43, size * 0.68),
+                        QtCore.QPointF(size * 0.74, size * 0.34),
+                    ]
+                )
+            )
+        painter.end()
+
+        _checkbox_icons[checked] = QtGui.QIcon(pixmap)
+    return _checkbox_icons[checked]
+
 
 def create_file_delegate(view):
     """
@@ -34,7 +81,8 @@ def create_file_delegate(view):
     # set the delegate properties
     delegate.selection_brush = QtCore.Qt.NoBrush
     delegate.show_hover_selection = False
-    delegate.thumbnail_width = 150
+    delegate.thumbnail_uniform = True
+    delegate.thumbnail_width = 120
 
     # set the delegate model data roles
     delegate.text_role = FileModel.TEXT_ROLE
@@ -43,6 +91,9 @@ def create_file_delegate(view):
         [
             {
                 "type": ViewItemAction.TYPE_CHECK_BOX,
+                # The get_data callback will set the icon based on state
+                "icon": QtGui.QIcon(),
+                "icon_size": QtCore.QSize(CHECKBOX_SIZE, CHECKBOX_SIZE),
                 "show_always": True,
                 "get_data": get_file_item_state,
             },
@@ -94,8 +145,10 @@ def get_file_item_state(parent, index):
         state |= QtGui.QStyle.State_Off
 
     return {
-        "visible": True,
+        "adjust_height_to_icon": True,
+        "icon": get_checkbox_icon(checkbox_state == QtCore.Qt.Checked),
         "state": state,
+        "visible": True,
     }
 
 

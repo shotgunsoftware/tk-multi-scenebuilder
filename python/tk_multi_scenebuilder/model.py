@@ -8,10 +8,12 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import html
+
 import sgtk
 from sgtk.platform.qt import QtCore, QtGui
 
-from .utils import resolve_filters
+from .utils import has_empty_list_value, resolve_filters
 
 shotgun_data = sgtk.platform.import_framework(
     "tk-framework-shotgunutils", "shotgun_data"
@@ -110,12 +112,23 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             """
 
             if role == FileModel.TEXT_ROLE:
-                return f"""
-                <span style='color: #18A7E3;'>Entity</span> {self.__sg_data.get('entity', {}).get('name')}<br/>
-                <span style='color: #18A7E3;'>Name</span> {self.__sg_data.get('name', "")}<br/>
-                <span style='color: #18A7E3;'>Type</span> {self.__sg_data.get('published_file_type', {}).get('name')}<br/>
-                <span style='color: #18A7E3;'>Version</span> {self.__sg_data.get('version_number')}<br/>
-                """
+                fields = [
+                    ("Entity", (self.__sg_data.get("entity") or {}).get("name")),
+                    ("Task", (self.__sg_data.get("task") or {}).get("name")),
+                    ("Name", self.__sg_data.get("name")),
+                    (
+                        "Type",
+                        (self.__sg_data.get("published_file_type") or {}).get("name"),
+                    ),
+                    ("Version", self.__sg_data.get("version_number")),
+                ]
+                rows = "".join(
+                    "<tr><td style='color: #18A7E3; padding-right: 8px;'>%s</td>"
+                    "<td>%s</td></tr>"
+                    % (label, html.escape("" if value is None else str(value)))
+                    for label, value in fields
+                )
+                return "<table cellspacing='0' cellpadding='0'>%s</table>" % rows
 
             elif role == FileModel.SG_DATA_ROLE:
                 return self.__sg_data
@@ -227,7 +240,14 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                         "No PublishedFile query fields could be resolved from the Loader app."
                     )
                 fields = list(fields) + ["published_file_type"]
-                filters = resolve_filters(action["context"]) + [publish_type_filters]
+                context_filters = resolve_filters(action["context"])
+                if has_empty_list_value(context_filters):
+                    self._bundle.logger.debug(
+                        "Skipping an action of preset '%s': a filter resolved to an "
+                        "empty list for the current context." % preset_name
+                    )
+                    continue
+                filters = context_filters + [publish_type_filters]
                 order = [{"field_name": "version_number", "direction": "desc"}]
 
                 # execute PTR query in the background

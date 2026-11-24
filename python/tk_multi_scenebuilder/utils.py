@@ -14,6 +14,39 @@ from sgtk.util import sgre as re
 REGEX_PATTERN = r"{context.(\w+)(.(\w+))*}"
 ENTITY_LIST = ["project", "entity", "step", "task"]
 FIELD_LIST = ["id", "name"]
+UPSTREAM_STEPS_TOKEN = "upstream_steps"
+
+
+def get_upstream_steps():
+    """
+    Get the upstream pipeline steps of the current context step, as defined in the
+    `step_dependencies` app setting.
+
+    :return: A list of Step codes, empty when the current step has no dependencies
+    """
+    app = sgtk.platform.current_bundle()
+
+    step = app.context.step
+    if not step:
+        return []
+    return list(app.get_setting("step_dependencies").get(step["name"], []))
+
+
+def has_empty_list_value(filters):
+    """
+    Check whether any of the given filters has an empty list as value, which
+    Flow Production Tracking cannot query, e.g. [step.Step.code, in, []].
+
+    :param filters: A list of resolved filters, as returned by `resolve_filters`
+    :return: True if at least one filter has an empty list value, False otherwise
+    """
+    for filter in filters:
+        if type(filter) is dict:
+            if has_empty_list_value(filter["filters"]):
+                return True
+        elif any(value == [] for value in filter[2:]):
+            return True
+    return False
 
 
 def resolve_filters(filters):
@@ -39,9 +72,11 @@ def resolve_filters(filters):
         else:
             resolved_filter = []
             for field in filter:
-                m = re.match(REGEX_PATTERN, field)
+                m = re.match(REGEX_PATTERN, field) if isinstance(field, str) else None
                 if m:
-                    if m.group(1) in ENTITY_LIST:
+                    if m.group(1) == UPSTREAM_STEPS_TOKEN:
+                        field = get_upstream_steps()
+                    elif m.group(1) in ENTITY_LIST:
                         if not m.group(3):
                             field = getattr(app.context, m.group(1))
                         elif m.group(3) and m.group(3) in FIELD_LIST:
