@@ -37,8 +37,8 @@ def prune_empty_list_filters(filters, filter_operator="all"):
     Remove the filters that have an empty list as value, which Flow Production
     Tracking cannot query, e.g. [step.Step.code, in, []].
 
-    Such a filter matches nothing, except with the `not_in` operator, where it does
-    not restrict anything. An "all" group matches nothing when any of its filters
+    Such a filter matches nothing, except with the `is_not` and `not_in` operators,
+    where it does not restrict anything. An "all" group matches nothing when any of its filters
     matches nothing, an "any" group only when all of them do.
 
     :param filters: A list of resolved filters, as returned by `resolve_filters`
@@ -62,7 +62,7 @@ def prune_empty_list_filters(filters, filter_operator="all"):
                 continue
             unrestricted = sub_filters is not None
         elif any(value == [] for value in filter[2:]):
-            unrestricted = filter[1] == "not_in"
+            unrestricted = filter[1] in ("is_not", "not_in")
         else:
             pruned.append(filter)
             continue
@@ -103,10 +103,15 @@ def resolve_filters(filters):
                     if m.group(1) == UPSTREAM_STEPS_TOKEN:
                         field = get_upstream_steps()
                     elif m.group(1) in ENTITY_LIST:
-                        if not m.group(3):
-                            field = getattr(app.context, m.group(1))
-                        elif m.group(3) and m.group(3) in FIELD_LIST:
-                            field = getattr(app.context, m.group(1), {}).get(m.group(3))
+                        entity = getattr(app.context, m.group(1))
+                        if entity is None:
+                            # An empty list makes the filter unmatchable, see
+                            # prune_empty_list_filters.
+                            field = []
+                        elif not m.group(3):
+                            field = entity
+                        elif m.group(3) in FIELD_LIST:
+                            field = entity.get(m.group(3))
                 resolved_filter.append(field)
         resolved_filters.append(resolved_filter)
     return resolved_filters
