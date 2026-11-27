@@ -13,7 +13,7 @@ import html
 import sgtk
 from sgtk.platform.qt import QtCore, QtGui
 
-from .utils import prune_empty_list_filters, resolve_filters
+from .utils import get_upstream_steps, prune_empty_list_filters, resolve_filters
 
 shotgun_data = sgtk.platform.import_framework(
     "tk-framework-shotgunutils", "shotgun_data"
@@ -38,10 +38,19 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         STATUS_ROLE,
         TYPE_ROLE,
         BREAKDOWN_DATA_ROLE,
+        HIDDEN_ROLE,
+        LOWER_PRIORITY_ROLE,
+        STEP_RANK_ROLE,
         NEXT_AVAILABLE_ROLE,
-    ) = range(_BASE_ROLE, _BASE_ROLE + 7)
+    ) = range(_BASE_ROLE, _BASE_ROLE + 10)
 
     STATUS_UP_TO_DATE, STATUS_OUTDATED, STATUS_NOT_LOADED, STATUS_INVALID = range(4)
+
+    # Statuses of the file items the user can check, and that are built when checked
+    CHECKABLE_STATUSES = (STATUS_NOT_LOADED, STATUS_OUTDATED)
+
+    LABEL_COLOR = "#18A7E3"
+    STEP_FIELD = "task.Task.step.Step.code"
 
     GROUP_NAMES = {
         STATUS_UP_TO_DATE: "Loaded",
@@ -123,9 +132,13 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     ("Version", self.__sg_data.get("version_number")),
                 ]
                 rows = "".join(
-                    "<tr><td style='color: #18A7E3; padding-right: 8px;'>%s</td>"
+                    "<tr><td style='color: %s; padding-right: 8px;'>%s</td>"
                     "<td>%s</td></tr>"
-                    % (label, html.escape("" if value is None else str(value)))
+                    % (
+                        FileModel.LABEL_COLOR,
+                        label,
+                        html.escape("" if value is None else str(value)),
+                    )
                     for label, value in fields
                 )
                 return "<table cellspacing='0' cellpadding='0'>%s</table>" % rows
@@ -158,6 +171,9 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         self._bundle = sgtk.platform.current_bundle()
         self._loader_app = loader_app
         self._breakdown_manager = breakdown_manager
+        self._best_matching_step_only = self._bundle.get_setting(
+            "best_matching_step_only"
+        )
 
         # sg data retriever is used to download thumbnails and perform PTR queries in the background
         self._sg_data_retriever = ShotgunDataRetriever(bg_task_manager=bg_task_manager)
@@ -171,6 +187,14 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
 
         # Add additional roles defined by the ViewItemRolesMixin class.
         self.NEXT_AVAILABLE_ROLE = self.initialize_roles(self.NEXT_AVAILABLE_ROLE)
+
+    @property
+    def best_matching_step_only(self):
+        """
+        Whether only the published files of the best matching upstream step of each
+        entity are checked.
+        """
+        return self._best_matching_step_only
 
     def clear(self):
         """Clear the model data"""
@@ -239,7 +263,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     raise RuntimeError(
                         "No PublishedFile query fields could be resolved from the Loader app."
                     )
-                fields = list(fields) + ["published_file_type"]
+                fields = list(fields) + ["published_file_type", self.STEP_FIELD]
                 context_filters = prune_empty_list_filters(
                     resolve_filters(action["context"])
                 )
@@ -275,6 +299,7 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
         if request_type == "find":
 
             publishes = {}
+            new_items = []
             action_mappings = self._pending_requests.pop(uid)
 
             # first, go through each published files to check if they have already been loaded to the scene
@@ -305,12 +330,15 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                     self.set_status(publish_item, publish)
                     self._set_parent(publish_item)
                     publishes_by_type[publish["name"]] = publish_item
+                    new_items.append(publish_item)
 
                     # get the thumbnail
                     thumbnail_id = self._sg_data_retriever.request_thumbnail(
                         publish["image"], publish["type"], publish["id"], "image"
                     )
                     self._pending_requests[thumbnail_id] = publish_item
+
+            self._rank_by_step(new_items)
 
             # now, we need to take care of the object already loaded to the scene that is not associated to it anymore
             for obj in self._scene_objs:
@@ -361,6 +389,37 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             "File Model: Failed to find sg_data for id %s: %s" % (uid, error_msg)
         )
 
+    def get_check_counts(self):
+        """
+        Count the file items the user can check, leaving out the hidden ones.
+
+        :return: A tuple of the number of checked file items and the total number of
+            checkable file items
+        """
+        checked = total = 0
+        for item in self._get_file_items():
+            if item.data(self.STATUS_ROLE) not in self.CHECKABLE_STATUSES:
+                continue
+            if item.data(self.HIDDEN_ROLE):
+                continue
+            total += 1
+            if item.data(QtCore.Qt.CheckStateRole) == QtCore.Qt.Checked:
+                checked += 1
+        return checked, total
+
+    def set_best_matching_step_only(self, enabled):
+        """
+        Show only the published files of the best matching upstream step of each
+        entity, or the published files of all the upstream steps. The published
+        files of the other upstream steps are unchecked either way.
+
+        :param enabled: True to hide the published files of the other upstream
+            steps, False to show them
+        """
+        self._best_matching_step_only = enabled
+        for item in self._get_file_items():
+            self._apply_best_matching_step(item)
+
     def set_status(self, item, sg_data=None, status=None):
         """Set the item status"""
 
@@ -387,6 +446,8 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
                 return  # Nothing to do
 
         item.setData(status, self.STATUS_ROLE)
+        if status != self.STATUS_NOT_LOADED:
+            item.setData(False, self.HIDDEN_ROLE)
 
         # if the status has changed and the item is already parented, we need to update the parent as it won't
         if item_status != status and item.parent():
@@ -423,9 +484,64 @@ class FileModel(QtGui.QStandardItemModel, ViewItemRolesMixin):
             self._parent_items[status] = parent_item
         parent_item.appendRow(item)
 
+    def _apply_best_matching_step(self, item):
+        """
+        Uncheck a file item that is not part of the best matching upstream step of
+        its entity, and hide or show it according to the best matching step only
+        option. Items already loaded in the scene are left untouched.
+
+        :param item: The FileItem to update
+        """
+        if not item.data(self.LOWER_PRIORITY_ROLE):
+            return
+        if item.data(self.STATUS_ROLE) != self.STATUS_NOT_LOADED:
+            return
+        item.setData(QtCore.Qt.Unchecked, QtCore.Qt.CheckStateRole)
+        item.setData(self._best_matching_step_only, self.HIDDEN_ROLE)
+
+    def _get_file_items(self):
+        """
+        :return: A list of all the FileItems in the model
+        """
+        items = []
+        root_item = self.invisibleRootItem()
+        for row in range(root_item.rowCount()):
+            group_item = root_item.child(row)
+            for sub_row in range(group_item.rowCount()):
+                items.append(group_item.child(sub_row))
+        return items
+
     def _is_publish_already_loaded(self, publish_id):
         """Check if the published file is already loaded into the current scene"""
         for obj in self._scene_objs:
             if obj.sg_data["id"] == publish_id:
                 return True, obj
         return False, None
+
+    def _rank_by_step(self, items):
+        """
+        Rank the file items by the position of their step in the `step_dependencies`
+        list of the current step, and flag the ones that are not part of the best
+        matching step of their entity: the first listed step that has published files.
+        Items whose step is not listed are not ranked.
+
+        :param items: The FileItems to rank
+        """
+        upstream_steps = get_upstream_steps()
+        best_ranks = {}
+        ranked_items = []
+        for item in items:
+            sg_data = item.data(self.SG_DATA_ROLE)
+            entity = sg_data.get("entity")
+            step = sg_data.get(self.STEP_FIELD)
+            if not entity or step not in upstream_steps:
+                continue
+            rank = upstream_steps.index(step)
+            entity_key = (entity["type"], entity["id"])
+            best_ranks[entity_key] = min(rank, best_ranks.get(entity_key, rank))
+            item.setData(rank, self.STEP_RANK_ROLE)
+            ranked_items.append((item, entity_key, rank))
+
+        for item, entity_key, rank in ranked_items:
+            item.setData(rank > best_ranks[entity_key], self.LOWER_PRIORITY_ROLE)
+            self._apply_best_matching_step(item)

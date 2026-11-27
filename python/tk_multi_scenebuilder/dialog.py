@@ -14,6 +14,8 @@ from sgtk.platform.qt import QtGui, QtCore
 from .ui.dialog import Ui_Dialog
 from .model import FileModel
 from .delegate import create_file_delegate
+from .proxy_model import FileProxyModel
+from .utils import get_upstream_steps
 
 task_manager = sgtk.platform.import_framework(
     "tk-framework-shotgunutils", "task_manager"
@@ -82,16 +84,40 @@ class AppDialog(QtGui.QWidget):
             loader_app=loader_app,
             breakdown_manager=self._breakdown_manager,
         )
-        self._ui.view.setModel(self._model)
-        self._model.data_loaded.connect(lambda v=self._ui.view: v.expandAll())
+        self._proxy_model = FileProxyModel(self)
+        self._proxy_model.setSourceModel(self._model)
+        self._proxy_model.sort(0)
+        self._ui.view.setModel(self._proxy_model)
+        self._model.data_loaded.connect(self._on_data_loaded)
+        for signal in (
+            self._model.dataChanged,
+            self._model.modelReset,
+            self._model.rowsInserted,
+            self._model.rowsRemoved,
+        ):
+            signal.connect(lambda *args: self._update_selection_label())
 
         self._delegate = create_file_delegate(self._ui.view)
         self._ui.view.setItemDelegate(self._delegate)
 
+        self._ui.best_matching_step_only.setChecked(self._model.best_matching_step_only)
+        self._ui.best_matching_step_only.setEnabled(bool(get_upstream_steps()))
+        self._update_selection_label()
+
         # # widget connections
+        self._ui.best_matching_step_only.toggled.connect(
+            self._on_best_matching_step_only_toggled
+        )
         self._ui.build_button.clicked.connect(self.build_scene)
+        self._ui.check_all_button.clicked.connect(
+            lambda: self._set_visible_check_state(QtCore.Qt.Checked)
+        )
+        self._ui.filter.textChanged.connect(self._on_filter_changed)
         self._ui.presets.currentIndexChanged.connect(
             lambda idx: self._model.load_data(self._ui.presets.itemText(idx))
+        )
+        self._ui.uncheck_all_button.clicked.connect(
+            lambda: self._set_visible_check_state(QtCore.Qt.Unchecked)
         )
 
         # finally load the model data
@@ -200,3 +226,58 @@ class AppDialog(QtGui.QWidget):
         )
 
         self._ui.view.expandAll()
+
+    def _on_best_matching_step_only_toggled(self, checked):
+        """
+        Slot triggered when the best matching step only check box is toggled.
+
+        :param checked: True if the check box is checked, False otherwise
+        """
+        self._model.set_best_matching_step_only(checked)
+        self._proxy_model.invalidate()
+        self._ui.view.expandAll()
+
+    def _on_data_loaded(self):
+        """
+        Slot triggered when the model has loaded the published files of a query.
+        """
+        # The sort roles are set after the items are added to the model.
+        self._proxy_model.invalidate()
+        self._ui.view.expandAll()
+
+    def _on_filter_changed(self, text):
+        """
+        Slot triggered when the filter text changes.
+
+        :param text: The new filter text
+        """
+        self._proxy_model.set_filter_text(text)
+        self._ui.view.expandAll()
+
+    def _set_visible_check_state(self, check_state):
+        """
+        Check or uncheck the file items that are visible with the current filter.
+
+        :param check_state: The :class:`sgtk.platform.qt.QtCore.Qt.CheckState` to set
+        """
+        items = []
+        for row in range(self._proxy_model.rowCount()):
+            group_index = self._proxy_model.index(row, 0)
+            for sub_row in range(self._proxy_model.rowCount(group_index)):
+                index = self._proxy_model.index(sub_row, 0, group_index)
+                if index.data(FileModel.STATUS_ROLE) in FileModel.CHECKABLE_STATUSES:
+                    items.append(
+                        self._model.itemFromIndex(self._proxy_model.mapToSource(index))
+                    )
+        for item in items:
+            item.setData(check_state, QtCore.Qt.CheckStateRole)
+
+    def _update_selection_label(self):
+        """
+        Show how many files are checked, and therefore built, out of the files the
+        user can check.
+        """
+        checked, total = self._model.get_check_counts()
+        self._ui.selection_label.setText(
+            "%d of %d file%s selected" % (checked, total, "" if total == 1 else "s")
+        )

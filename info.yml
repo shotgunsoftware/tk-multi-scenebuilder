@@ -18,6 +18,16 @@ configuration:
         description: "Hook allowing the user to run some pre and/or post build actions."
         default_value: "{self}/extra_build_actions.py"
 
+    best_matching_step_only:
+        type: bool
+        description: "Default state of the 'Best matching step only' check box. When
+                      enabled, only the published files of the best matching upstream
+                      step of each entity are shown, as defined by the order of the
+                      'step_dependencies' list. The published files of the other
+                      upstream steps are hidden, and shown unchecked when disabled.
+                      Users can toggle this in the UI."
+        default_value: True
+
     presets:
         type: list
         description: "A list of presets a user can choose when building his scene."
@@ -62,10 +72,14 @@ configuration:
                       the list for the current step, for example
                       [task.Task.step.Step.code, in, '{context.upstream_steps}'].
                       Preset actions are skipped for steps that are not listed, as
-                      there is nothing to pull."
+                      there is nothing to pull. The order of each list matters: the
+                      first step is the preferred one. For each entity, the 'Best
+                      matching step only' option keeps the published files of the
+                      first listed step that has any, for example a Rig if it exists,
+                      otherwise a Model."
         default_value:
             Animation: [Rig]
-            Layout: [Model, Rig, Texture]
+            Layout: [Rig, Texture, Model]
         allows_empty: True
 
 # this app works in all engines - it does not contain

@@ -52,6 +52,50 @@
        </property>
       </spacer>
      </item>
+     <item>
+      <widget class="QCheckBox" name="best_matching_step_only">
+       <property name="toolTip">
+        <string>For each entity, only show the files of the preferred upstream step that has files. When unchecked, the files of the other upstream steps are shown unchecked.</string>
+       </property>
+       <property name="text">
+        <string>Best matching step only</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="filter_layout">
+     <item>
+      <widget class="QLineEdit" name="filter">
+       <property name="placeholderText">
+        <string>Filter by entity, name, type or task</string>
+       </property>
+       <property name="clearButtonEnabled">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="check_all_button">
+       <property name="toolTip">
+        <string>Check the visible files</string>
+       </property>
+       <property name="text">
+        <string>Check All</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="uncheck_all_button">
+       <property name="toolTip">
+        <string>Uncheck the visible files</string>
+       </property>
+       <property name="text">
+        <string>Uncheck All</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
@@ -72,6 +116,9 @@
    </item>
    <item>
     <layout class="QHBoxLayout" name="button_layout">
+     <item>
+      <widget class="QLabel" name="selection_label"/>
+     </item>
      <item>
       <spacer name="horizontalSpacer_2">
        <property name="orientation">
