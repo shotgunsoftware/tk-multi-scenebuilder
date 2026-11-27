@@ -18,6 +18,16 @@ configuration:
         description: "Hook allowing the user to run some pre and/or post build actions."
         default_value: "{self}/extra_build_actions.py"
 
+    best_matching_step_only:
+        type: bool
+        description: "Default state of the 'Best matching step only' check box. When
+                      enabled, only the published files of the best matching upstream
+                      step of each entity are shown, as defined by the order of the
+                      'step_dependencies' list. The published files of the other
+                      upstream steps are hidden, and shown unchecked when disabled.
+                      Users can toggle this in the UI."
+        default_value: True
+
     presets:
         type: list
         description: "A list of presets a user can choose when building his scene."
@@ -52,6 +62,26 @@ configuration:
                                 description: "A dictionary where the key is a Published File Type and the value is the
                                               action name we want to perform when loading the file."
 
+    step_dependencies:
+        type: dict
+        description: "Maps a pipeline step to the list of upstream pipeline steps it
+                      pulls published files from, for example from asset steps into a
+                      shot step. Keys are matched against the current task's Step code
+                      and values against the published file task's Step code. Use the
+                      '{context.upstream_steps}' token in a preset filter to resolve
+                      the list for the current step, for example
+                      [task.Task.step.Step.code, in, '{context.upstream_steps}'].
+                      Preset actions are skipped for steps that are not listed, as
+                      there is nothing to pull. The order of each list matters: the
+                      first step is the preferred one. For each entity, the 'Best
+                      matching step only' option keeps the published files of the
+                      first listed step that has any, for example a Rig if it exists,
+                      otherwise a Model."
+        default_value:
+            Animation: [Rig]
+            Layout: [Rig, Texture, Model]
+        allows_empty: True
+
 # this app works in all engines - it does not contain
 # any host application specific commands
 supported_engines:
@@ -72,4 +102,4 @@ minimum_python_version: "3.9"
 # the frameworks required to run this app
 frameworks:
     - {"name": "tk-framework-shotgunutils", "version": "v5.x.x", "minimum_version": "v5.2.1"}
-    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x"}
+    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x", "minimum_version": "v2.11.0"}
